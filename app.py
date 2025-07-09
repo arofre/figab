@@ -20,7 +20,6 @@ with app.app_context():
 
 
 def get_portfolio_value_series():
-    # Load all relevant data at once
 
     holdings = pd.read_sql(select(Holding), db.engine)
     prices = pd.read_sql(select(HistoricalPrice), db.engine)
@@ -28,13 +27,11 @@ def get_portfolio_value_series():
     dividends = pd.read_sql(select(Dividend), db.engine)
 
 
-    # Ensure proper datetime parsing
     holdings['date'] = pd.to_datetime(holdings['date'])
     prices['date'] = pd.to_datetime(prices['date'])
     cash['date'] = pd.to_datetime(cash['date'])
     dividends['date'] = pd.to_datetime(dividends['date'])
 
-    # Prepare historical prices: get latest price <= holding date
     prices = prices.sort_values(['ticker', 'date'])
     latest_prices = (
         holdings
@@ -48,15 +45,12 @@ def get_portfolio_value_series():
 
     latest_prices['value'] = latest_prices['shares'] * latest_prices['price']
 
-    # Portfolio value from holdings
     holding_value = (
         latest_prices.groupby('date')['value'].sum().rename("holdings_value")
     )
 
-    # Portfolio cash
     cash_value = cash.groupby('date')['balance'].sum().rename("cash_value")
 
-    # Dividend cash (dividend.amount * shares)
     if not dividends.empty:
         dividends = dividends.merge(holdings, on=['date', 'ticker'], how='left')
         dividends['div_value'] = dividends['amount'] * dividends['shares']
@@ -64,7 +58,6 @@ def get_portfolio_value_series():
     else:
         dividend_cash = pd.Series(dtype='float64')
 
-    # Combine all components
     df = pd.concat([holding_value, cash_value, dividend_cash], axis=1).fillna(0)
     df['total_value'] = df.sum(axis=1)
 
@@ -263,7 +256,7 @@ def scheduled_daily_update():
 
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(scheduled_daily_update, 'cron', hour=1, minute=00)
+scheduler.add_job(scheduled_daily_update, 'cron', hour=2, minute=00)
 scheduler.start()
 
 if __name__ == "__main__":
