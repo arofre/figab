@@ -1,72 +1,129 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Figab Invest AB</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 2rem;
-            background: #f8f9fa;
-            color: #333;
-        }
-        h1, h2 {
-            color: #2c3e50;
-        }
-        .metrics {
-            display: flex;
-            gap: 2rem;
-            margin-bottom: 2rem;
-        }
-        .metric-box {
-            background: white;
-            border-radius: 8px;
-            padding: 1rem;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-            flex: 1;
-            text-align: center;
-        }
-        .charts {
-            display: flex;
-            gap: 2rem;
-        }
-        .charts img {
-            max-width: 100%;
-            border-radius: 10px;
-            background: white;
-            padding: 1rem;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-        }
-    </style>
+    <title>Portfolio Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/dist/date-fns.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+
 </head>
 <body>
-    <h1>Figab Invest AB</h1>
-    <h2>Total Value: {{ latest_value }} SEK</h2>
+    <h1>Portfolio Dashboard</h1>
 
-    <div class="metrics">
-        {% for label, pct in pct_changes.items() %}
-            <div class="metric-box">
-                <h3>{{ label }}</h3>
-                {% if pct is not none %}
-                    <p style="color: {% if pct >= 0 %}green{% else %}red{% endif %};">
-                        {{ pct|round(2) }}%
-                    </p>
-                {% else %}
-                    <p>N/A</p>
-                {% endif %}
-            </div>
+    <h2>Total Portfolio Value: {{ latest_value }} SEK</h2>
+
+    <h3>Percent Changes:</h3>
+    <ul>
+        {% for key, value in pct_changes.items() %}
+            <li>{{ key }}: {{ "%.2f"|format(value) if value is not none else "N/A" }}%</li>
         {% endfor %}
-    </div>
+    </ul>
 
-    <div class="charts">
-        <div>
-            <h2>Portfolio Value Over Time</h2>
-            <img src="{{ value_chart_url }}" alt="Portfolio Value Chart">
-        </div>
-        <div>
-            <h2>Portföljfördelning</h2>
-            <img src="{{ allocation_chart_url }}" alt="Portfolio Allocation Chart">
-        </div>
-    </div>
+    <h2>Portfolio Value Over Time</h2>
+    <canvas id="valueChart" width="900" height="500"></canvas>
+
+    <h2>Portfolio Allocation</h2>
+    <canvas id="allocationChart" width="600" height="500"></canvas>
+
+    <script>
+        const ctxValue = document.getElementById('valueChart').getContext('2d');
+        const valueChart = new Chart(ctxValue, {
+            type: 'line',
+            data: {
+                labels: {{ line_labels | tojson }},
+                datasets: [{
+                    label: 'Portfölj värde',
+                    data: {{ line_data | tojson }},
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    fill: true,
+                    pointRadius: 3,
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            parser: 'yyyy-MM-dd',
+                            unit: 'day',
+                            tooltipFormat: 'yyyy-MM-dd',
+                            displayFormats: {
+                                day: 'yyyy-MM-dd'
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Date'
+                        },
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45
+                        }
+                    },
+                    y: {
+                        max: {{ y_max }},
+                        min: {{ y_min}},
+                        title: {
+                            display: true,
+                            text: 'Value'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: true
+                    },
+                    tooltip: {
+                        enabled: true
+                    }
+                },
+
+            }
+        });
+
+        const ctxAlloc = document.getElementById('allocationChart').getContext('2d');
+        {% if alloc_labels %}
+        const allocationChart = new Chart(ctxAlloc, {
+            type: 'pie',
+            data: {
+                labels: {{ alloc_labels | tojson }},
+                datasets: [{
+                    label: 'Allocation',
+                    data: {{ alloc_values | tojson }},
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.6)',
+                        'rgba(54, 162, 235, 0.6)',
+                        'rgba(255, 206, 86, 0.6)',
+                        'rgba(75, 192, 192, 0.6)',
+                        'rgba(153, 102, 255, 0.6)',
+                        'rgba(255, 159, 64, 0.6)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                    },
+                    tooltip: {
+                        enabled: true
+                    }
+                }
+            }
+        });
+        {% else %}
+        ctxAlloc.canvas.parentNode.innerHTML = '<p>No allocation data available.</p>';
+        {% endif %}
+    </script>
+
 </body>
 </html>
