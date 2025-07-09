@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Portfolio Tracker</title>
+</head>
+<body>
+    <h1>Portfolio Total Value: ${{ total_value | round(2) }}</h1>
+    <img src="data:image/png;base64,{{ plot_url }}" alt="Portfolio Value Chart">
+    <h2>Add Investment</h2>
+    <form action="/add" method="POST">
+        <label>Asset:</label><input name="asset" required><br>
+        <label>Quantity (positive buy, negative sell):</label><input name="quantity" type="number" step="any" required><br>
+        <label>Date (YYYY-MM-DD):</label><input name="date" type="date"><br>
+        <label>Dividends (if any):</label><input name="dividends" type="number" step="any"><br>
+        <button type="submit">Add</button>
+    </form>
+</body>
+</html>
