@@ -15,7 +15,7 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///prices.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-app.secret_key = "Knarkpengar1"
+app.secret_key = input("Set password:")
 
 db.init_app(app)
 
@@ -127,7 +127,7 @@ def percent_change(series, start_date, today_val):
 
 
 def check_auth(username, password):
-    return username == 'admin' and password == 'Knarkpengar1'
+    return username == 'admin' and password == app.secret_key
 
 
 def authenticate():
