@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import os
 
 import pandas as pd
@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from models import db, Holding, HistoricalPrice, Cash, Dividend
-from bootstrap import bootstrap_data
+from bootstrap import bootstrap_data, load_transactions, generate_holdings, DEFAULT_START_DATE, STARTING_CASH
 from update import update_close_prices
 
 
@@ -49,6 +49,36 @@ def get_latest_prices_for_holdings(date, tickers):
     )
 
     return {ticker: price for ticker, price in latest_prices}
+
+@app.route("/increment")
+def incremental_update():
+    """Fetch only new data since our last date and append holdings/cash"""
+    with app.app_context():
+        # 1) Fetch new prices and dividends since last stored date
+        last_price_date = db.session.query(func.max(HistoricalPrice.date)).scalar()
+        start_date = (last_price_date + timedelta(days=1)) if last_price_date else DEFAULT_START_DATE
+
+        tickers = [t[0] for t in db.session.query(HistoricalPrice.ticker).distinct().all()]
+        for ticker in tickers:
+            update_close_prices(ticker, start_date=start_date)
+
+        # 2) Append new holdings & cash rows
+        last_holding_date = db.session.query(func.max(Holding.date)).scalar()
+        txs, _ = load_transactions("transactions.csv")
+        from_date = (last_holding_date + timedelta(days=1)) if last_holding_date else DEFAULT_START_DATE
+        to_date = date.today()
+        starting_cash = (db.session.query(Cash.balance)
+                         .filter(Cash.date == last_holding_date)
+                         .scalar()) if last_holding_date else STARTING_CASH
+
+        generate_holdings(
+            transactions=txs,
+            from_date=from_date,
+            to_date=to_date,
+            starting_cash=starting_cash
+        )
+
+    return redirect(url_for('dashboard'))
 
 def get_index_prices(tickers, dates):
     prices = (
@@ -224,7 +254,7 @@ def dashboard():
         pct_changes=pct_changes,
         latest_value=round(today_val, 2),
         line_labels=line_labels,
-        line_data=line_data,  # portfolio values
+        line_data=line_data,
         omx_data=omx_data,
         gspc_data=gspc_data,
         alloc_labels=alloc_labels,
@@ -241,7 +271,7 @@ def reset_db():
     if not auth or not check_auth(auth.username, auth.password):
         return authenticate()
 
-    scheduled_daily_update()
+    reset_everything()
     return redirect(url_for('dashboard'))
 
 
@@ -279,7 +309,7 @@ def admin_dashboard():
 
 
 
-def scheduled_daily_update():
+def reset_everything():
     with app.app_context():
         db.drop_all()
         db.create_all()
@@ -287,7 +317,7 @@ def scheduled_daily_update():
 
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(scheduled_daily_update, 'cron', hour=2, minute=0)
+scheduler.add_job(incremental_update, 'cron', hour=2, minute=0)
 scheduler.start()
 
 

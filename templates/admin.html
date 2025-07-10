@@ -45,6 +45,10 @@
     <button type="submit" style="background-color: #e74c3c; color: white;">Reset Database</button>
   </form>
 
+  <form id="increment-form" action="/increment" method="get" onsubmit="return confirmReset()" style="margin-top: 40px;">
+    <button type="submit" style="background-color: #e74c3c; color: white;">Increment</button>
+  </form>
+
   <script>
     function confirmReset() {
       return confirm("Are you sure you want to reset the database? This action cannot be undone.");
