@@ -15,7 +15,7 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///prices.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-app.secret_key = "Knarkpengar1"
+app.secret_key = os.environ.get("SECRET_KEY", "fallback-dev-key")
 
 db.init_app(app)
 
