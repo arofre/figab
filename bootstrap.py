@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from collections import defaultdict
 from models import db, Holding
 from update import update_close_prices
-from models import Cash, HistoricalPrice
+from models import Cash, HistoricalPrice, Dividend
 
 CSV_PATH = "transactions.csv"
 DEFAULT_START_DATE = date(2025, 2, 17)
@@ -40,6 +40,35 @@ def interpolate_and_add_prices(price_points):
                 if not existing:
                     db.session.add(HistoricalPrice(ticker=ticker, date=current_date, close=interpolated_price))
     db.session.commit()
+
+def apply_dividends_to_cash():
+    all_cash = {c.date: c for c in Cash.query.all()}
+    all_holdings = defaultdict(dict)
+    for h in Holding.query.all():
+        all_holdings[h.date][h.ticker] = h.shares
+
+    for div in Dividend.query.all():
+        div_date = div.date
+        ticker = div.ticker
+        amount = div.amount
+
+        dates_before = [d for d in all_holdings if d <= div_date and ticker in all_holdings[d]]
+        if not dates_before:
+            continue
+        latest_date = max(dates_before)
+        shares_held = all_holdings[latest_date][ticker]
+        if shares_held <= 0:
+            continue
+
+        dividend_value = shares_held * amount
+
+        for cash_date in sorted(all_cash):
+            if cash_date >= div_date:
+                all_cash[cash_date].balance += dividend_value
+
+    db.session.commit()
+    print("✔️ Dividends applied to cash balances")
+
 
 def generate_holdings(transactions):
     holdings_by_ticker = defaultdict(int)
@@ -109,3 +138,10 @@ def bootstrap_data():
 
     print("Populating holdings...")
     generate_holdings(transactions)
+    
+    print("Re-fetching dividends after holdings exist...")
+    for ticker in tickers:
+        update_close_prices(ticker, DEFAULT_START_DATE, include_dividends=True)
+
+    print("Applying dividends to cash balances...")
+    apply_dividends_to_cash()

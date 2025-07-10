@@ -1,16 +1,22 @@
-from flask import Flask, render_template, request
+from datetime import datetime, timedelta
+import os
+
+import pandas as pd
+from flask import Flask, render_template, request, Response, redirect, url_for, flash
+from sqlalchemy import func, select
+from apscheduler.schedulers.background import BackgroundScheduler
+
 from models import db, Holding, HistoricalPrice, Cash, Dividend
 from bootstrap import bootstrap_data
 from update import update_close_prices
-from sqlalchemy import select
-import pandas as pd
-from datetime import datetime, timedelta
-import plotly.express as px
-import json
+
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///prices.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+app.secret_key = "Knarkpengar1"
+
 db.init_app(app)
 
 with app.app_context():
@@ -19,20 +25,61 @@ with app.app_context():
         bootstrap_data()
 
 
-def get_portfolio_value_series():
+def get_latest_prices_for_holdings(date, tickers):
+    if not tickers:
+        return {}
 
+    subq = (
+        db.session.query(
+            HistoricalPrice.ticker,
+            func.max(HistoricalPrice.date).label('max_date')
+        )
+        .filter(
+            HistoricalPrice.ticker.in_(tickers),
+            HistoricalPrice.date <= date
+        )
+        .group_by(HistoricalPrice.ticker)
+        .subquery()
+    )
+
+    latest_prices = (
+        db.session.query(HistoricalPrice.ticker, HistoricalPrice.close)
+        .join(subq, (HistoricalPrice.ticker == subq.c.ticker) & (HistoricalPrice.date == subq.c.max_date))
+        .all()
+    )
+
+    return {ticker: price for ticker, price in latest_prices}
+
+
+def get_allocation(latest_date):
+    holdings = Holding.query.filter_by(date=latest_date).all()
+    if not holdings:
+        return pd.DataFrame(columns=['ticker', 'value'])
+
+    tickers = [h.ticker for h in holdings]
+    price_dict = get_latest_prices_for_holdings(latest_date, tickers)
+
+    data = []
+    for h in holdings:
+        price = price_dict.get(h.ticker)
+        if price is not None:
+            data.append({'ticker': h.ticker, 'value': price * h.shares})
+
+    return pd.DataFrame(data)
+
+
+def calculate_portfolio_values():
     holdings = pd.read_sql(select(Holding), db.engine)
     prices = pd.read_sql(select(HistoricalPrice), db.engine)
     cash = pd.read_sql(select(Cash), db.engine)
     dividends = pd.read_sql(select(Dividend), db.engine)
 
-
-    holdings['date'] = pd.to_datetime(holdings['date'])
-    prices['date'] = pd.to_datetime(prices['date'])
-    cash['date'] = pd.to_datetime(cash['date'])
-    dividends['date'] = pd.to_datetime(dividends['date'])
+    for df in [holdings, prices, cash, dividends]:
+        if not df.empty:
+            df['date'] = pd.to_datetime(df['date'])
 
     prices = prices.sort_values(['ticker', 'date'])
+
     latest_prices = (
         holdings
         .merge(prices, on='ticker', how='left')
@@ -42,13 +89,9 @@ def get_portfolio_value_series():
         .rename(columns={'date_x': 'date', 'close': 'price'})
         [['ticker', 'date', 'shares', 'price']]
     )
-
     latest_prices['value'] = latest_prices['shares'] * latest_prices['price']
 
-    holding_value = (
-        latest_prices.groupby('date')['value'].sum().rename("holdings_value")
-    )
-
+    holding_value = latest_prices.groupby('date')['value'].sum().rename("holdings_value")
     cash_value = cash.groupby('date')['balance'].sum().rename("cash_value")
 
     if not dividends.empty:
@@ -61,89 +104,31 @@ def get_portfolio_value_series():
     df = pd.concat([holding_value, cash_value, dividend_cash], axis=1).fillna(0)
     df['total_value'] = df.sum(axis=1)
 
-    df = df[['total_value']].sort_index()
-    df.index = pd.to_datetime(df.index)
-
-    return df['total_value']
+    return df['total_value'].sort_index()
 
 
-from sqlalchemy import func, desc
-import pandas as pd
+def percent_change(series, start_date, today_val):
+    s = series[series.index <= start_date]
+    if s.empty:
+        return None
+    return ((today_val - s.iloc[-1]) / s.iloc[-1]) * 100
 
-def get_allocation(latest_date):
-    holdings = Holding.query.filter_by(date=latest_date).all()
-    if not holdings:
-        return pd.DataFrame(columns=['ticker', 'value'])
-
-    tickers = [h.ticker for h in holdings]
-
-    subq = (
-        db.session.query(
-            HistoricalPrice.ticker,
-            func.max(HistoricalPrice.date).label('max_date')
-        )
-        .filter(
-            HistoricalPrice.ticker.in_(tickers),
-            HistoricalPrice.date <= latest_date
-        )
-        .group_by(HistoricalPrice.ticker)
-        .subquery()
-    )
-
-    latest_prices = (
-        db.session.query(HistoricalPrice.ticker, HistoricalPrice.close)
-        .join(subq, (HistoricalPrice.ticker == subq.c.ticker) & (HistoricalPrice.date == subq.c.max_date))
-        .all()
-    )
-
-    price_dict = {tp[0]: tp[1] for tp in latest_prices}
-
-    data = []
-    for h in holdings:
-        price = price_dict.get(h.ticker)
-        if price is not None:
-            value = price * h.shares
-            data.append({'ticker': h.ticker, 'value': value})
-
-    return pd.DataFrame(data)
-
-
-from apscheduler.schedulers.background import BackgroundScheduler
-from update import update_close_prices
-
-import os 
-from flask import current_app
-
-from flask import request, Response
 
 def check_auth(username, password):
     return username == 'admin' and password == 'Knarkpengar1'
+
 
 def authenticate():
     return Response(
         'Could not verify your access level for that URL.\n'
         'You have to login with proper credentials', 401,
-        {'WWW-Authenticate': 'Basic realm="Login Required"'})
+        {'WWW-Authenticate': 'Basic realm="Login Required"'}
+    )
 
-@app.route("/reset_db")
-def reset_db():
-    auth = request.authorization
-    if not auth or not check_auth(auth.username, auth.password):
-        return authenticate()
-    scheduled_daily_update()
-    return "Database reset done"
-
-
-
-from sqlalchemy import select, func
-import pandas as pd
-from datetime import timedelta
 
 @app.route("/")
 def dashboard():
-    all_dates = db.session.query(Holding.date).distinct().order_by(Holding.date).all()
-    all_dates = [d[0] for d in all_dates]
-
+    all_dates = [d[0] for d in db.session.query(Holding.date).distinct().order_by(Holding.date).all()]
     if not all_dates:
         return "No data available"
 
@@ -160,32 +145,7 @@ def dashboard():
                 cash += div.amount * holding.shares
 
         tickers = [h.ticker for h in holdings]
-        if tickers:
-            subq = (
-                db.session.query(
-                    HistoricalPrice.ticker,
-                    func.max(HistoricalPrice.date).label("max_date"),
-                )
-                .filter(
-                    HistoricalPrice.ticker.in_(tickers),
-                    HistoricalPrice.date <= dt,
-                )
-                .group_by(HistoricalPrice.ticker)
-                .subquery()
-            )
-
-            latest_prices = (
-                db.session.query(HistoricalPrice.ticker, HistoricalPrice.close)
-                .join(
-                    subq,
-                    (HistoricalPrice.ticker == subq.c.ticker)
-                    & (HistoricalPrice.date == subq.c.max_date),
-                )
-                .all()
-            )
-            price_dict = {p[0]: p[1] for p in latest_prices}
-        else:
-            price_dict = {}
+        price_dict = get_latest_prices_for_holdings(dt, tickers)
 
         total_value = cash
         for h in holdings:
@@ -198,39 +158,29 @@ def dashboard():
     series = pd.Series(dict(portfolio_values))
     series.index = pd.to_datetime(series.index)
 
-    latest = series.index[-1]
-    first = series.index[0]
+    latest_date = series.index[-1]
+    first_date = series.index[0]
     today_val = series.iloc[-1]
 
-    def percent_change(start_date):
-        s = series[series.index <= start_date]
-        if s.empty:
-            return None
-        return ((today_val - s.iloc[-1]) / s.iloc[-1]) * 100
-
     now = pd.Timestamp.now().normalize()
+
     pct_changes = {
-        "Today": percent_change(now - timedelta(days=1)),
-        "This Week": percent_change(now - timedelta(days=7)),
-        "This Month": percent_change(now.replace(day=1)),
-        "This Year": percent_change(now.replace(month=1, day=1)),
-        "All Time": percent_change(first),
+        "This Week": percent_change(series, now - timedelta(days=7), today_val),
+        "This Month": percent_change(series, now.replace(day=1), today_val),
+        "This Year": percent_change(series, now.replace(month=1, day=1), today_val),
+        "All Time": percent_change(series, first_date, today_val),
     }
 
     df_series = series.reset_index()
     df_series.columns = ["date", "value"]
     df_series["date"] = pd.to_datetime(df_series["date"])
 
-    labels = df_series["date"].dt.strftime("%Y-%m-%d").tolist()
-    data_values = df_series["value"].tolist()
+    line_labels = df_series["date"].dt.strftime("%Y-%m-%d").tolist()
+    line_data = df_series["value"].tolist()
 
-    df_alloc = get_allocation(latest)
-    if df_alloc.empty:
-        alloc_labels = []
-        alloc_values = []
-    else:
-        alloc_labels = df_alloc["ticker"].tolist()
-        alloc_values = df_alloc["value"].tolist()
+    df_alloc = get_allocation(latest_date)
+    alloc_labels = df_alloc["ticker"].tolist() if not df_alloc.empty else []
+    alloc_values = df_alloc["value"].tolist() if not df_alloc.empty else []
 
     y_max = round(df_series["value"].max() * 1.05, -4)
     y_min = round(df_series["value"].min() * 0.95, -4)
@@ -239,13 +189,58 @@ def dashboard():
         "dashboard.html",
         pct_changes=pct_changes,
         latest_value=round(today_val, 2),
-        line_labels=labels,
-        line_data=data_values,
+        line_labels=line_labels,
+        line_data=line_data,
         alloc_labels=alloc_labels,
         alloc_values=alloc_values,
         y_max=y_max,
         y_min=y_min,
     )
+
+
+@app.route("/reset_db")
+def reset_db():
+    auth = request.authorization
+    if not auth or not check_auth(auth.username, auth.password):
+        return authenticate()
+
+    scheduled_daily_update()
+    return "Database reset done"
+
+
+@app.route("/admin", methods=["GET", "POST"])
+def admin_dashboard():
+    auth = request.authorization
+    if not auth or not check_auth(auth.username, auth.password):
+        return authenticate()
+
+    if request.method == "POST":
+        ticker = request.form.get("ticker", "").strip().upper()
+        amount = request.form.get("amount", "").strip()
+        action = request.form.get("action")
+        date_str = request.form.get("date")
+
+        if not ticker or not amount or action not in ("Buy", "Sell"):
+            flash("Please fill out all fields correctly.")
+            return redirect(url_for("admin_dashboard"))
+
+        try:
+            amount = int(amount)
+        except ValueError:
+            flash("Amount must be an integer.")
+            return redirect(url_for("admin_dashboard"))
+
+        # Write to transactions.csv
+        line = f"{ticker};{date_str};{action};{amount};\n"
+
+        with open("transactions.csv", "a") as f:
+            f.write(line)
+
+        flash("Transaction recorded successfully.")
+        return redirect(url_for("admin_dashboard"))
+
+    return render_template("admin.html")
+
 
 
 def scheduled_daily_update():
@@ -256,8 +251,10 @@ def scheduled_daily_update():
 
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(scheduled_daily_update, 'cron', hour=2, minute=00)
+scheduler.add_job(scheduled_daily_update, 'cron', hour=2, minute=0)
 scheduler.start()
+
+
 
 if __name__ == "__main__":
     try:

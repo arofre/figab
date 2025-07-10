@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Admin - Add Transaction</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
+
+</head>
+<body class="p-4">
+  <h2>Admin - Add Transaction</h2>
+
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <div class="alert alert-info">
+        {% for message in messages %}
+          <div>{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div id="transaction-container">
+    <form method="post">
+      <label for="ticker">Ticker:</label>
+      <input type="text" id="ticker" name="ticker" required>
+
+      <label for="amount">Amount:</label>
+      <input type="number" id="amount" name="amount" min="1" required>
+
+      <label for="action">Action:</label>
+      <select id="action" name="action" required>
+        <option value="Buy">Buy</option>
+        <option value="Sell">Sell</option>
+      </select>
+
+      <label for="date">Date:</label>
+      <input type="date" id="date" name="date" required>
+
+      <button type="submit">Submit</button>
+    </form>
+  </div>
+
+  <form id="reset-form" action="/reset_db" method="get" onsubmit="return confirmReset()" style="margin-top: 40px;">
+    <button type="submit" style="background-color: #e74c3c; color: white;">Reset Database</button>
+  </form>
+
+  <script>
+    function confirmReset() {
+      return confirm("Are you sure you want to reset the database? This action cannot be undone.");
+    }
+  </script>
+</body>
+
+</html>
