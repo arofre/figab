@@ -50,6 +50,18 @@ def get_latest_prices_for_holdings(date, tickers):
 
     return {ticker: price for ticker, price in latest_prices}
 
+def get_index_prices(tickers, dates):
+    prices = (
+        db.session.query(HistoricalPrice.ticker, HistoricalPrice.date, HistoricalPrice.close)
+        .filter(HistoricalPrice.ticker.in_(tickers))
+        .filter(HistoricalPrice.date.in_(dates))
+        .all()
+    )
+
+    df = pd.DataFrame(prices, columns=['ticker', 'date', 'close'])
+    df['date'] = pd.to_datetime(df['date'])
+    return df
+
 
 def get_allocation(latest_date):
     holdings = Holding.query.filter_by(date=latest_date).all()
@@ -175,12 +187,34 @@ def dashboard():
     df_series.columns = ["date", "value"]
     df_series["date"] = pd.to_datetime(df_series["date"])
 
+    index_tickers = ['^OMX', '^GSPC']
+    index_prices_df = get_index_prices(index_tickers, series.index)
+
+    # Pivot to get date as index and tickers as columns
+    index_pivot = index_prices_df.pivot(index='date', columns='ticker', values='close')
+
+    # Convert to lists for plotting
+    omx_data_temp = index_pivot.get('^OMX', pd.Series()).reindex(series.index).fillna(method='ffill')
+    omx_data = [x * 150000 / omx_data_temp[0] for x in omx_data_temp]
+
+    gspc_data_temp = index_pivot.get('^GSPC', pd.Series()).reindex(series.index).fillna(method='ffill')
+    gspc_data = [x * 150000 / gspc_data_temp[0] for x in gspc_data_temp]
+
     line_labels = df_series["date"].dt.strftime("%Y-%m-%d").tolist()
     line_data = df_series["value"].tolist()
 
     df_alloc = get_allocation(latest_date)
-    alloc_labels = df_alloc["ticker"].tolist() if not df_alloc.empty else []
-    alloc_values = df_alloc["value"].tolist() if not df_alloc.empty else []
+
+    if not df_alloc.empty:
+        total_value = df_alloc['value'].sum()
+
+        df_alloc['percent'] = (df_alloc['value'] / total_value) * 100
+        alloc_labels = df_alloc["ticker"].tolist()
+        alloc_values = df_alloc["percent"].tolist()
+    else:
+        alloc_labels = []
+        alloc_values = []
+
 
     y_max = round(df_series["value"].max() * 1.05, -4)
     y_min = round(df_series["value"].min() * 0.95, -4)
@@ -190,11 +224,14 @@ def dashboard():
         pct_changes=pct_changes,
         latest_value=round(today_val, 2),
         line_labels=line_labels,
-        line_data=line_data,
+        line_data=line_data,  # portfolio values
+        omx_data=omx_data,
+        gspc_data=gspc_data,
         alloc_labels=alloc_labels,
         alloc_values=alloc_values,
         y_max=y_max,
         y_min=y_min,
+        cash=round(cash),
     )
 
 
@@ -205,7 +242,7 @@ def reset_db():
         return authenticate()
 
     scheduled_daily_update()
-    return "Database reset done"
+    return redirect(url_for('dashboard'))
 
 
 @app.route("/admin", methods=["GET", "POST"])
@@ -230,7 +267,6 @@ def admin_dashboard():
             flash("Amount must be an integer.")
             return redirect(url_for("admin_dashboard"))
 
-        # Write to transactions.csv
         line = f"{ticker};{date_str};{action};{amount};\n"
 
         with open("transactions.csv", "a") as f:

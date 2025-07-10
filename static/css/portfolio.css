@@ -1,0 +1,57 @@
+/* Make the body use some padding and max-width for readability */
+body {
+    margin: 0 auto;
+    padding: 1rem;
+    max-width: 1200px;
+    font-family: Arial, sans-serif;
+    box-sizing: border-box;
+}
+
+/* Responsive container for charts */
+.chart-container {
+    width: 100%;        /* full width of parent */
+    max-width: 800px;   /* optional max width */
+    margin: 1rem auto;  /* center with vertical spacing */
+}
+
+/* Responsive canvas sizing */
+canvas {
+    width: 100% !important;
+    height: auto !important;
+}
+
+/* Headings scale nicely */
+h2, h3 {
+    font-weight: 600;
+    margin: 0.5rem 0;
+    line-height: 1.2;
+}
+
+h1 {
+    font-weight: 600;
+    margin: 0.5rem 0 1rem 0;
+    line-height: 1.2;
+    padding-bottom: 0.3rem;
+    border-bottom: 2px solid #333; /* Adjust color and thickness */
+}
+
+
+
+/* Make the percent changes list responsive */
+ul {
+    padding-left: 1.2rem;
+    max-width: 600px;
+    margin-bottom: 2rem;
+}
+
+/* Optional: Make text scale on smaller screens */
+@media (max-width: 600px) {
+    body {
+        padding: 0.5rem;
+        max-width: 100%;
+    }
+
+    .chart-container {
+        max-width: 100%;
+    }
+}

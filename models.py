@@ -23,4 +23,4 @@ class Dividend(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     ticker = db.Column(db.String, nullable=False)
     date = db.Column(db.Date, nullable=False)
-    amount = db.Column(db.Float, nullable=False)  # SEK
+    amount = db.Column(db.Float, nullable=False)

@@ -47,23 +47,29 @@ def update_close_prices(ticker, start_date=None, include_dividends=False):
 
     yf_ticker = yf.Ticker(ticker)
     hist = yf_ticker.history(start=MIN_DATE)
-    currency = infer_currency(ticker)
 
-    exchange_rates = get_exchange_history()
+    is_index = ticker.startswith("^")  # Index detection
+    currency = "SEK" if ticker == "^OMX" else "USD" if ticker == "^GSPC" else infer_currency(ticker)
+    exchange_rates = {} if is_index else get_exchange_history()
 
-    for dt, row in hist.iterrows():
-        date_only = dt.date()
-        if start_date and date_only < start_date:
-            continue
-        if row['Close'] is None or row['Close'] == 0:
-            continue
+    if not include_dividends:
+        for dt, row in hist.iterrows():
+            date_only = dt.date()
+            if start_date and date_only < start_date:
+                continue
+            if row['Close'] is None or row['Close'] == 0:
+                continue
 
-        price = convert_to_sek(row['Close'], currency, dt, exchange_rates)
-        db.session.merge(HistoricalPrice(
-            ticker=ticker,
-            date=date_only,
-            close=price
-        ))
+            if not is_index:
+                price = convert_to_sek(row['Close'], currency, dt, exchange_rates)
+            else:
+                price = row['Close']
+                
+            db.session.merge(HistoricalPrice(
+                ticker=ticker,
+                date=date_only,
+                close=price
+            ))
 
     if include_dividends:
         divs = hist['Dividends']

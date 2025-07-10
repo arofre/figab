@@ -67,7 +67,6 @@ def apply_dividends_to_cash():
                 all_cash[cash_date].balance += dividend_value
 
     db.session.commit()
-    print("✔️ Dividends applied to cash balances")
 
 
 def generate_holdings(transactions):
