@@ -261,7 +261,6 @@ def dashboard():
         y_max=y_max,
         y_min=y_min,
         cash=round(cash),
-        updated=LAST_UPDATED,
     )
 
 
