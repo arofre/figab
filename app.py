@@ -314,6 +314,7 @@ def reset_everything():
         db.create_all()
         bootstrap_data()
 
+
 import os
 import threading
 import asyncio
@@ -326,6 +327,8 @@ import discord
 
 DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN")
 DISCORD_CHANNEL_ID = 1392494950360285266
+
+print(DISCORD_TOKEN)
 
 intents = discord.Intents.default()
 client = discord.Client(intents=intents)
