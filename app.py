@@ -19,6 +19,7 @@ app.secret_key = os.environ.get("SECRET_KEY", "fallback-dev-key")
 
 db.init_app(app)
 
+
 with app.app_context():
     db.create_all()
     if db.session.query(HistoricalPrice).count() == 0:
@@ -54,7 +55,6 @@ def get_latest_prices_for_holdings(date, tickers):
 def incremental_update():
     """Fetch only new data since our last date and append holdings/cash"""
     with app.app_context():
-        # 1) Fetch new prices and dividends since last stored date
         last_price_date = db.session.query(func.max(HistoricalPrice.date)).scalar()
         start_date = (last_price_date + timedelta(days=1)) if last_price_date else DEFAULT_START_DATE
 
@@ -62,7 +62,6 @@ def incremental_update():
         for ticker in tickers:
             update_close_prices(ticker, start_date=start_date)
 
-        # 2) Append new holdings & cash rows
         last_holding_date = db.session.query(func.max(Holding.date)).scalar()
         txs, _ = load_transactions("transactions.csv")
         from_date = (last_holding_date + timedelta(days=1)) if last_holding_date else DEFAULT_START_DATE
@@ -77,6 +76,8 @@ def incremental_update():
             to_date=to_date,
             starting_cash=starting_cash
         )
+
+
 
     return redirect(url_for('dashboard'))
 
@@ -220,10 +221,8 @@ def dashboard():
     index_tickers = ['^OMX', '^GSPC']
     index_prices_df = get_index_prices(index_tickers, series.index)
 
-    # Pivot to get date as index and tickers as columns
     index_pivot = index_prices_df.pivot(index='date', columns='ticker', values='close')
 
-    # Convert to lists for plotting
     omx_data_temp = index_pivot.get('^OMX', pd.Series()).reindex(series.index).fillna(method='ffill')
     omx_data = [x * 150000 / omx_data_temp[0] for x in omx_data_temp]
 
@@ -262,6 +261,7 @@ def dashboard():
         y_max=y_max,
         y_min=y_min,
         cash=round(cash),
+        updated=LAST_UPDATED,
     )
 
 
@@ -317,7 +317,7 @@ def reset_everything():
 
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(incremental_update, 'cron', hour=2, minute=0)
+scheduler.add_job(incremental_update, 'cron', hour=23, minute=0)
 scheduler.start()
 
 
