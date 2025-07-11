@@ -314,7 +314,7 @@ def reset_everything():
         db.create_all()
         bootstrap_data()
 
-
+'''
 import os
 import threading
 import asyncio
@@ -327,7 +327,6 @@ import discord
 
 DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN")
 DISCORD_CHANNEL_ID = 1392494950360285266
-
 print(DISCORD_TOKEN)
 
 intents = discord.Intents.default()
@@ -383,22 +382,22 @@ async def send_portfolio_update():
 def run_discord_bot():
     client.run(DISCORD_TOKEN)
 
-
+'''
 scheduler = BackgroundScheduler()
 
 scheduler.add_job(incremental_update, 'cron', hour=23, minute=0)
 
-scheduler.add_job(
-    lambda: asyncio.run_coroutine_threadsafe(send_portfolio_update(), client.loop),
-    CronTrigger(hour=8, minute=00, timezone=timezone("Europe/Stockholm"))
-)
+#scheduler.add_job(
+#    lambda: asyncio.run_coroutine_threadsafe(send_portfolio_update(), client.loop),
+#    CronTrigger(hour=8, minute=00, timezone=timezone("Europe/Stockholm"))
+#)
 
 scheduler.start()
 
 
 if __name__ == "__main__":
-    discord_thread = threading.Thread(target=run_discord_bot)
-    discord_thread.start()
+    #discord_thread = threading.Thread(target=run_discord_bot)
+    #discord_thread.start()
 
     try:
         port = int(os.environ.get("PORT", 8080))
