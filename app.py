@@ -356,6 +356,7 @@ from models import db, Holding, Cash
 import os
 
 TOKEN = os.environ.get("DISCORD_TOKEN")
+print(TOKEN)
 
 intents = discord.Intents.default()
 intents.message_content = True  
