@@ -383,10 +383,11 @@ scheduler.add_job(incremental_update, 'cron', hour=23, minute=0)
 
 scheduler.start()
 
+import threading
 
 if __name__ == "__main__":
-    #discord_thread = threading.Thread(target=run_discord_bot)
-    #discord_thread.start()
+    discord_thread = threading.Thread(target=lambda: bot.run(TOKEN), daemon=True)
+    discord_thread.start()
 
     try:
         port = int(os.environ.get("PORT", 8080))
