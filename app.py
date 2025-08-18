@@ -318,8 +318,6 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-app = Flask(__name__)
-
 def get_portfolio_message():
     with app.app_context():
         all_dates = [d[0] for d in db.session.query(Holding.date).distinct().order_by(Holding.date).all()]
