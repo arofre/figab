@@ -13,6 +13,7 @@ class Holding(db.Model):
     ticker = db.Column(db.String, nullable=False)
     date = db.Column(db.Date, nullable=False)
     shares = db.Column(db.Integer, nullable=False)
+    longname = db.Column(db.String, nullable=False)
 
 class Cash(db.Model):
     id = db.Column(db.Integer, primary_key=True)

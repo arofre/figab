@@ -5,6 +5,7 @@ import pandas as pd
 from flask import Flask, render_template, request, Response, redirect, url_for, flash
 from sqlalchemy import func, select
 from apscheduler.schedulers.background import BackgroundScheduler
+from collections import defaultdict
 
 from models import db, Holding, HistoricalPrice, Cash, Dividend
 from bootstrap import bootstrap_data, load_transactions, generate_holdings, DEFAULT_START_DATE, STARTING_CASH
@@ -156,6 +157,17 @@ def percent_change(series, start_date, today_val):
         return None
     return ((today_val - s.iloc[-1]) / s.iloc[-1]) * 100
 
+def get_current_holdings_longnames():
+    latest_date = Holding.query.order_by(Holding.date.desc()).first()
+    if not latest_date:
+        return []
+    holdings = Holding.query.filter_by(date=latest_date.date).all()
+    return list({h.longname for h in holdings if h.longname})
+
+def get_past_holdings_longnames(current_holdings):
+    all_holdings = Holding.query.all()
+    return list({h.longname for h in all_holdings if h.longname and h.longname not in current_holdings})
+
 
 def check_auth(username, password):
     return username == 'admin' and password == app.secret_key
@@ -174,6 +186,9 @@ def dashboard():
     all_dates = [d[0] for d in db.session.query(Holding.date).distinct().order_by(Holding.date).all()]
     if not all_dates:
         return "No data available"
+
+    current_holdings = get_current_holdings_longnames()
+    past_holdings = get_past_holdings_longnames(current_holdings)
 
     portfolio_values = []
     for dt in all_dates:
@@ -261,6 +276,8 @@ def dashboard():
         y_max=y_max,
         y_min=y_min,
         cash=round(cash),
+        current=current_holdings,
+        past=past_holdings,
     )
 
 
@@ -314,91 +331,66 @@ def reset_everything():
         db.create_all()
         bootstrap_data()
 
-'''
 import os
-import threading
-import asyncio
 from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
 from pytz import timezone
 
-import discord
 
-DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN")
-DISCORD_CHANNEL_ID = 1392494950360285266
-print(DISCORD_TOKEN)
+WEB_HOOK_ID = os.environ.get("WEB_HOOK_ID")
 
-intents = discord.Intents.default()
-client = discord.Client(intents=intents)
+import requests
 
-
-@client.event
-async def on_ready():
-    print(f"Bot is ready. Logged in as {client.user}")
-    channel = client.get_channel(DISCORD_CHANNEL_ID)
-    await channel.send("Bot redo")
-
-
-    
-
-
-async def send_portfolio_update():
+@app.route("/send_discord_update")
+def disc():
     with app.app_context():
         all_dates = [d[0] for d in db.session.query(Holding.date).distinct().order_by(Holding.date).all()]
         if len(all_dates) < 2:
-            return  
+            return "Not enough data", 400
 
         last_date = all_dates[-1]
         prev_date = all_dates[-2]
 
         holdings_last = Holding.query.filter_by(date=last_date).all()
-        price_dict_last = get_latest_prices_for_holdings(last_date, [h.ticker for h in holdings_last])
-        total_last = sum(price_dict_last.get(h.ticker, 0) * h.shares for h in holdings_last)
+        tickers_last = [h.ticker for h in holdings_last]
+        price_dict_last = get_latest_prices_for_holdings(last_date, tickers_last)
 
+        total_last = sum(price_dict_last.get(h.ticker, 0) * h.shares for h in holdings_last)
         cash_last = Cash.query.filter_by(date=last_date).first()
         if cash_last:
             total_last += cash_last.balance
 
         holdings_prev = Holding.query.filter_by(date=prev_date).all()
-        price_dict_prev = get_latest_prices_for_holdings(prev_date, [h.ticker for h in holdings_prev])
-        total_prev = sum(price_dict_prev.get(h.ticker, 0) * h.shares for h in holdings_prev)
+        tickers_prev = [h.ticker for h in holdings_prev]
+        price_dict_prev = get_latest_prices_for_holdings(prev_date, tickers_prev)
 
+        total_prev = sum(price_dict_prev.get(h.ticker, 0) * h.shares for h in holdings_prev)
         cash_prev = Cash.query.filter_by(date=prev_date).first()
         if cash_prev:
             total_prev += cash_prev.balance
 
-        diff = total_last - total_prev
-        pct_change = (diff / total_prev * 100) if total_prev else 0
 
-        channel = client.get_channel(DISCORD_CHANNEL_ID)
-        await channel.send(
+
+        message = (
             f"Värdet av FIGAB {last_date}:\n"
             f"SEK {total_last:,.2f}\n"
-            f"Förändring under dagen: SEK {diff:,.2f} ({pct_change:+.2f}%)"
         )
+        
+        webhook_url = f"https://discord.com/api/webhooks/{WEB_HOOK_ID}"
+        #1394995035887505551/9lOk10vuiK5Lfg9lRM1uWiJB2Naita7GvJySih29LxcJmViWt8VaoQMquETDoH-yoqfX
+        requests.post(webhook_url, json={"content": message})
+
+        return "Message sent to Discord", 200
 
 
-def run_discord_bot():
-    client.run(DISCORD_TOKEN)
-
-'''
 scheduler = BackgroundScheduler()
 
 scheduler.add_job(incremental_update, 'cron', hour=23, minute=0)
-
-#scheduler.add_job(
-#    lambda: asyncio.run_coroutine_threadsafe(send_portfolio_update(), client.loop),
-#    CronTrigger(hour=8, minute=00, timezone=timezone("Europe/Stockholm"))
-#)
 
 scheduler.start()
 
 
 if __name__ == "__main__":
-    #discord_thread = threading.Thread(target=run_discord_bot)
-    #discord_thread.start()
-
     try:
         port = int(os.environ.get("PORT", 8080))
         app.run(host="0.0.0.0", port=port)

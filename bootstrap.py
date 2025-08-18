@@ -68,55 +68,60 @@ def apply_dividends_to_cash():
 
     db.session.commit()
 
+import yfinance as yf
+from collections import defaultdict
+from datetime import date, timedelta
+from models import db, Holding, Cash, Dividend, HistoricalPrice
+
+def fetch_longnames(tickers):
+    longnames = {}
+    for ticker in tickers:
+        try:
+            info = yf.Ticker(ticker).info
+            longnames[ticker] = info.get("longName") or info.get("shortName") or ticker
+        except Exception:
+            longnames[ticker] = ticker
+    return longnames
+
 def generate_holdings(transactions, from_date=None, to_date=None, starting_cash=None):
-    """
-    Simulate holdings and cash between from_date and to_date.
-    If from_date/to_date not provided, defaults to full range starting at DEFAULT_START_DATE to today.
-    starting_cash must be provided when from_date is set.
-    """
-    # Determine simulation bounds
-    if from_date is None:
-        start = DEFAULT_START_DATE
-    else:
-        start = from_date
+    start = from_date or DEFAULT_START_DATE
     end = to_date or date.today()
 
-    # Initialize holdings & cash
     holdings_by_ticker = defaultdict(int)
     holdings_by_date = defaultdict(lambda: defaultdict(int))
     cash_by_date = {}
     tx_by_date = defaultdict(list)
     dividend_by_date = defaultdict(list)
 
-    # Build transaction lookup
     for tx_date, ticker, tx_type, amount in transactions:
         tx_by_date[tx_date].append((ticker, tx_type, amount))
 
-    # Pre-load existing holdings as of the day before 'start'
     if from_date:
         prev_date = from_date - timedelta(days=1)
         for h in Holding.query.filter_by(date=prev_date).all():
             holdings_by_ticker[h.ticker] = h.shares
 
-    # Build dividend lookup for the period
     for div in Dividend.query.filter(Dividend.date >= start, Dividend.date <= end).all():
         dividend_by_date[div.date].append(div)
 
-    # Starting cash
-    if from_date and starting_cash is not None:
-        current_cash = starting_cash
-    else:
-        current_cash = STARTING_CASH
+    tickers = {tx[1] for tx in transactions}
+    longnames = fetch_longnames(tickers)
 
+    price_entries = HistoricalPrice.query.filter(
+        HistoricalPrice.ticker.in_(tickers),
+        HistoricalPrice.date >= start,
+        HistoricalPrice.date <= end
+    ).all()
+    price_lookup = {(p.ticker, p.date): p.close for p in price_entries}
+
+    current_cash = starting_cash if from_date and starting_cash is not None else STARTING_CASH
     current_date = start
-    # Iterate dates
+
     while current_date <= end:
-        # Apply transactions
         for ticker, tx_type, amount in tx_by_date.get(current_date, []):
-            entry = HistoricalPrice.query.filter_by(ticker=ticker, date=current_date).first()
-            if not entry:
+            total_value = amount * price_lookup.get((ticker, current_date), 0)
+            if total_value == 0:
                 continue
-            total_value = amount * entry.close
             if tx_type.lower() == "buy":
                 holdings_by_ticker[ticker] += amount
                 current_cash -= total_value
@@ -124,28 +129,23 @@ def generate_holdings(transactions, from_date=None, to_date=None, starting_cash=
                 holdings_by_ticker[ticker] -= amount
                 current_cash += total_value
 
-        # Apply dividends
         for div in dividend_by_date.get(current_date, []):
             shares = holdings_by_ticker.get(div.ticker, 0)
             if shares > 0:
                 current_cash += shares * div.amount
 
-        # Record holdings
         for ticker, shares in holdings_by_ticker.items():
             if shares > 0:
                 holdings_by_date[current_date][ticker] = shares
 
-        # Record cash
         cash_by_date[current_date] = current_cash
         current_date += timedelta(days=1)
 
-    # Persist to DB only for the new date range
-    for dt, tickers in holdings_by_date.items():
-        # Skip if row already exists
+    for dt, tickers_dict in holdings_by_date.items():
         if Holding.query.filter_by(date=dt).first():
             continue
-        for ticker, shares in tickers.items():
-            db.session.add(Holding(ticker=ticker, date=dt, shares=shares))
+        for ticker, shares in tickers_dict.items():
+            db.session.add(Holding(ticker=ticker, date=dt, shares=shares, longname=longnames.get(ticker, ticker)))
 
     for dt, balance in cash_by_date.items():
         if Cash.query.filter_by(date=dt).first():
@@ -154,6 +154,7 @@ def generate_holdings(transactions, from_date=None, to_date=None, starting_cash=
 
     db.session.commit()
     print(f"Holdings & Cash populated for dates {start} to {end}")
+
 
 def load_unique_tickers(csv_path):
     tickers = set()

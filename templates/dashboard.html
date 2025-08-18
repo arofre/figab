@@ -1,130 +1,168 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portfolio Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/dist/date-fns.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-<link rel="stylesheet" href="{{ url_for('static', filename='css/portfolio.css') }}" />
-
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/portfolio.css') }}" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/dist/date-fns.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
 </head>
 <body>
-    <h1>Portfolio Dashboard</h1>
+    <header>
+        <h1>Portfolio Dashboard</h1>
+    </header>
 
-    <h2>Total Portfolio Value: {{ latest_value }} SEK</h2>
-    <h2>Total liquid funds: {{ cash }} SEK</h2>
+    <section class="summary">
+        <div class="summary-item">
+            <h2>Total Portfolio Value</h2>
+            <p>{{ latest_value }} SEK</p>
+        </div>
+        <div class="summary-item">
+            <h2>Total Liquid Funds</h2>
+            <p>{{ cash }} SEK</p>
+        </div>
+    </section>
 
+    <section class="percent-changes">
+        <h3>Percent Changes</h3>
+        <ul>
+            {% for key, value in pct_changes.items() %}
+                <li>{{ key }}: {{ "%.2f"|format(value) if value is not none else "N/A" }}%</li>
+            {% endfor %}
+        </ul>
+    </section>
 
-    <h3>Percent Changes:</h3>
-    <ul>
-        {% for key, value in pct_changes.items() %}
-            <li>{{ key }}: {{ "%.2f"|format(value) if value is not none else "N/A" }}%</li>
-        {% endfor %}
-    </ul>
+    <section class="holdings">
+        <div class="collapsible">
+            <span class="arrow">▶</span> Current Holdings
+        </div>
+        <div class="content">
+            <ul>
+                {% for item in current %}
+                <li>{{ item }}</li>
+                {% endfor %}
+            </ul>
+        </div>
 
-    <h1>Portfolio Value Over Time</h1>
-    <div class="chart-container">
-        <canvas id="valueChart"></canvas>
-    </div>
+        <div class="collapsible">
+            <span class="arrow">▶</span> Past Holdings
+        </div>
+        <div class="content">
+            <ul>
+                {% for item in past %}
+                <li>{{ item }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </section>
 
+    <section class="charts">
+        <h2>Portfolio Value Over Time</h2>
+        <div class="chart-container">
+            <canvas id="valueChart"></canvas>
+        </div>
 
-    <h1>Portfolio Allocation</h1>
-    <div class="chart-container">
-        <canvas id="allocationChart"></canvas>
-    </div>
+        <h2>Portfolio Allocation</h2>
+        <div class="chart-container">
+            <canvas id="allocationChart"></canvas>
+        </div>
+    </section>
 
+    <section class="rules">
+        <h2>Stadgar (Rules)</h2>
+        <ol>
+            <li>Tredje tisdagen varje kalendermånad ska alla investeringar ifrågasättas. Majoritet krävs för beslut om köp/försäljning.</li>
+            <li>Portföljen ska innehålla mellan 10–15 olika aktieinvesteringar.</li>
+            <li>Diversifiering mellan sektorer ska premieras; koncentration i en sektor ska undvikas.</li>
+            <li>Cash, räntepapper eller guld prioriteras framför värdepapper utan övertygelse.</li>
+            <li>Stämma öppnas med en allmän skål med whiskey.</li>
+            <li>Endast Ordförande kan utse övriga medlemmar till roller inom FIGAB INVEST AB.</li>
+        </ol>
+    </section>
 
-    <h2>Stadgar</h2>
-    <h3>§1    Tredje tisdagen varje kalendermånad ska alla investeringar ifrågasättas av samtliga medlemar i denna Google spreadsheets fil, Därefter ska det röstas om att justera pruttföljens innehav, en simpel majoritet krävs för beslut om försäljning eller köp av aktie.</h3>
-    <h3>§2    Portföljen får högst innehålla 15 olika aktieinvesteringar och får inte understiga tio aktieinnehav. </h3>
-    <h3>§3    Diversifiering mellan olika sektorer ska premieras och en allt för hög koncentration av en investeringssektor skall undvikas </h3>
-    <h3>§4    FIGAB håller helldre cash, räntepapper eller guld istället för att köpa värde papper utan övertygelse </h3>
-    <h3>§5    Stämma öppnas med en allmän skål med whiskey</h3>
-    <h3>§6    Endast Ordförande/Ordföranden av FIGAB INVEST AB kan utse övriga medlemmar i FIGAB INVEST AB till diverse roller inom FIGAB. Ordförande/Ordföranden behöver inte godkännande från ett styrelsemöte för att utse medlemmar till roller med undantag för Ordföranden och styrelseledamot.</h3>
-
-<script>
-    const ctxValue = document.getElementById('valueChart').getContext('2d');
-    const valueChart = new Chart(ctxValue, {
-        type: 'line',
-        data: {
-            labels: {{ line_labels | tojson }},
-            datasets: [
-                {
-                    label: 'Portfölj värde',
-                    data: {{ line_data | tojson }},
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                    fill: true,
-                    pointRadius: 1,
-                    tension: 0.1
-                },
-                {
-                    label: '^OMX',
-                    data: {{ omx_data | tojson }},
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                    fill: false,
-                    pointRadius: 0,
-                    borderDash: [5, 5],
-                    tension: 0.1
-                },
-                {
-                    label: '^GSPC',
-                    data: {{ gspc_data | tojson }},
-                    borderColor: 'rgba(255, 99, 132, 1)',
-                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                    fill: false,
-                    pointRadius: 0,
-                    borderDash: [5, 5],
-                    tension: 0.1
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script>
+        document.querySelectorAll('.collapsible').forEach((btn) => {
+            btn.addEventListener('click', function() {
+                this.classList.toggle('active');
+                const content = this.nextElementSibling;
+                if (content.classList.contains('expanded')) {
+                    content.classList.remove('expanded');
+                } else {
+                    content.classList.add('expanded');
                 }
-            ]
-        },
-        options: {
-            responsive: true,
-            interaction: {
-                mode: 'index',
-                intersect: false,
+            });
+        });
+
+        document.querySelectorAll('.content').forEach((c) => c.classList.remove('expanded'));
+
+        // --- Portfolio Value Line Chart ---
+        const ctxValue = document.getElementById('valueChart').getContext('2d');
+        const valueChart = new Chart(ctxValue, {
+            type: 'line',
+            data: {
+                labels: {{ line_labels | tojson }},
+                datasets: [
+                    {
+                        label: 'Portfolio Value',
+                        data: {{ line_data | tojson }},
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        fill: true,
+                        pointRadius: 1,
+                        tension: 0.2
+                    },
+                    {
+                        label: '^OMX',
+                        data: {{ omx_data | tojson }},
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        fill: false,
+                        pointRadius: 0,
+                        borderDash: [5, 5],
+                        tension: 0.1
+                    },
+                    {
+                        label: '^GSPC',
+                        data: {{ gspc_data | tojson }},
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        fill: false,
+                        pointRadius: 0,
+                        borderDash: [5, 5],
+                        tension: 0.1
+                    }
+                ]
             },
-            scales: {
-                x: {
-                    type: 'time',
-                    time: {
-                        parser: 'yyyy-MM-dd',
-                        unit: 'day',
-                        tooltipFormat: 'yyyy-MM-dd',
-                        displayFormats: {
-                            day: 'yyyy-MM-dd'
-                        }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            parser: 'yyyy-MM-dd',
+                            unit: 'day',
+                            tooltipFormat: 'yyyy-MM-dd',
+                            displayFormats: { day: 'yyyy-MM-dd' }
+                        },
+                        title: { display: true, text: 'Date' },
+                        ticks: { maxRotation: 45, minRotation: 45 }
                     },
-                    title: {
-                        display: true,
-                        text: 'Date'
-                    },
-                    ticks: {
-                        maxRotation: 45,
-                        minRotation: 45
+                    y: {
+                        max: {{ y_max }},
+                        min: {{ y_min }},
+                        title: { display: true, text: 'Value' }
                     }
                 },
-                y: {
-                    max: {{ y_max }},
-                    min: {{ y_min }},
-                    title: {
-                        display: true,
-                        text: 'Value'
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    display: true
-                },
-                tooltip: {
-                    enabled: true
-                }
+                plugins: { legend: { display: true }, tooltip: { enabled: true } }
             }
-        }
-    });
+        });
+
+        // --- Portfolio Allocation Pie Chart ---
         const ctxAlloc = document.getElementById('allocationChart').getContext('2d');
         {% if alloc_labels %}
         const allocationChart = new Chart(ctxAlloc, {
@@ -147,29 +185,26 @@
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 plugins: {
-                    legend: {
-                        display: false
-                    },
+                    legend: { display: true },
                     tooltip: {
                         callbacks: {
                             label: function(context) {
-                                let label = context.label || '';
-                                let value = context.parsed;
+                                const label = context.label || '';
+                                const value = context.parsed;
                                 return label + ': ' + value.toFixed(2) + '%';
                             }
                         }
                     }
-
                 }
             }
         });
         {% else %}
         ctxAlloc.canvas.parentNode.innerHTML = '<p>No allocation data available.</p>';
         {% endif %}
+
+
     </script>
-
-<
-
 </body>
 </html>

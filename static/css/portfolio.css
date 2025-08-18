@@ -1,57 +1,308 @@
-/* Make the body use some padding and max-width for readability */
-body {
-    margin: 0 auto;
-    padding: 1rem;
-    max-width: 1200px;
-    font-family: Arial, sans-serif;
+/* portfolio.css */
+
+/* --- Reset and Base Styles --- */
+* {
     box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 }
 
-/* Responsive container for charts */
-.chart-container {
-    width: 100%;        /* full width of parent */
-    max-width: 800px;   /* optional max width */
-    margin: 1rem auto;  /* center with vertical spacing */
+body {
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    background-color: #f9f9f9;
+    color: #333;
+    padding: 20px;
 }
 
-/* Responsive canvas sizing */
-canvas {
-    width: 100% !important;
-    height: auto !important;
+/* --- Header --- */
+header {
+    text-align: center;
+    margin-bottom: 30px;
 }
 
-/* Headings scale nicely */
-h2, h3 {
-    font-weight: 600;
-    margin: 0.5rem 0;
-    line-height: 1.2;
+header h1 {
+    font-size: 2.5rem;
+    color: #2a7f62;
 }
 
-h1 {
-    font-weight: 600;
-    margin: 0.5rem 0 1rem 0;
-    line-height: 1.2;
-    padding-bottom: 0.3rem;
-    border-bottom: 2px solid #333; /* Adjust color and thickness */
+/* --- Summary Section --- */
+.summary {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
 }
 
+.summary-item {
+    background: #e1f0eb;
+    border-radius: 12px;
+    padding: 20px 30px;
+    flex: 1 1 250px;
+    max-width: 300px;
+    box-shadow: 0 4px 8px rgb(0 0 0 / 0.1);
+    text-align: center;
+    transition: background-color 0.3s ease;
+}
 
+.summary-item:hover {
+    background-color: #c7eadb;
+}
 
-/* Make the percent changes list responsive */
-ul {
-    padding-left: 1.2rem;
+.summary-item h2 {
+    font-size: 1.2rem;
+    margin-bottom: 8px;
+    color: #2a7f62;
+}
+
+.summary-item p {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #1b4d3b;
+}
+
+/* --- Percent Changes --- */
+.percent-changes {
     max-width: 600px;
-    margin-bottom: 2rem;
+    margin: 0 auto 40px auto;
+    background: #fff;
+    padding: 20px 25px;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgb(0 0 0 / 0.1);
 }
 
-/* Optional: Make text scale on smaller screens */
-@media (max-width: 600px) {
-    body {
-        padding: 0.5rem;
+.percent-changes h3 {
+    margin-bottom: 15px;
+    font-size: 1.5rem;
+    color: #276749;
+    border-bottom: 2px solid #276749;
+    padding-bottom: 6px;
+}
+
+.percent-changes ul {
+    list-style-type: none;
+    font-size: 1.1rem;
+    line-height: 1.5;
+    color: #444;
+}
+
+.percent-changes li {
+    padding: 6px 0;
+    border-bottom: 1px solid #eee;
+}
+
+/* --- Holdings Section --- */
+.holdings {
+    max-width: 700px;
+    margin: 0 auto 40px auto;
+}
+
+.collapsible {
+    background-color: #2a7f62;
+    color: white;
+    cursor: pointer;
+    padding: 14px 20px;
+    border-radius: 10px;
+    margin-top: 10px;
+    font-size: 1.1rem;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background-color 0.2s ease;
+}
+
+.collapsible:hover,
+.collapsible.active {
+    background-color: #276749;
+}
+
+.arrow {
+    display: inline-block;
+    font-weight: bold;
+    transition: transform 0.3s ease;
+}
+
+/* When active, rotate the arrow */
+.collapsible.active .arrow {
+    transform: rotate(90deg);
+}
+
+.content {
+    padding: 0 20px 0 40px;
+    background-color: #e9f5ef;
+    border-radius: 0 0 10px 10px;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease, padding 0.3s ease;
+    box-shadow: none;
+}
+
+.content.expanded {
+    max-height: 500px;
+    padding: 20px 20px 20px 40px;
+    box-shadow: 0 4px 8px rgb(0 0 0 / 0.1);
+}
+
+
+.content ul {
+    list-style: disc inside;
+    color: #2b6a4a;
+}
+
+.content ul li {
+    margin-bottom: 8px;
+}
+
+/* --- Charts Section --- */
+.charts {
+    max-width: 900px;
+    margin: 0 auto 40px auto;
+    background: #fff;
+    padding: 20px 25px;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgb(0 0 0 / 0.1);
+}
+
+.charts h2 {
+    margin-bottom: 15px;
+    font-size: 1.8rem;
+    color: #2a7f62;
+    border-bottom: 2px solid #2a7f62;
+    padding-bottom: 8px;
+}
+
+.chart-container {
+    position: relative;
+    width: 100%;
+    min-height: 350px;
+    margin-bottom: 40px;
+}
+
+
+/* Ensure canvas takes full width and height */
+.chart-container canvas {
+    display: block;
+    max-width: 100%;
+}
+
+/* --- Rules Section --- */
+.rules {
+    max-width: 700px;
+    margin: 0 auto 40px auto;
+    background-color: #f1f5f9;
+    border-radius: 12px;
+    padding: 20px 25px;
+    box-shadow: 0 2px 6px rgb(0 0 0 / 0.1);
+}
+
+.rules h2 {
+    font-size: 1.8rem;
+    color: #2a7f62;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #2a7f62;
+    padding-bottom: 8px;
+}
+
+.rules ol {
+    padding-left: 20px;
+    color: #444;
+    line-height: 1.5;
+}
+
+.rules ol li {
+    margin-bottom: 12px;
+    font-size: 1rem;
+}
+
+/* --- Responsive Design --- */
+
+/* Medium devices (tablets, 768px and up) */
+@media (max-width: 991px) {
+    .summary {
+        gap: 20px;
+    }
+
+    .summary-item {
         max-width: 100%;
+        flex: 1 1 45%;
+    }
+
+    .charts {
+        padding: 15px 20px;
     }
 
     .chart-container {
+        height: 300px;
+    }
+}
+
+/* Small devices (phones, 767px and down) */
+@media (max-width: 767px) {
+    body {
+        padding: 15px 10px;
+    }
+
+    header h1 {
+        font-size: 2rem;
+    }
+
+    .summary {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .summary-item {
         max-width: 100%;
+        flex: 1 1 100%;
+        margin-bottom: 15px;
+    }
+
+    .percent-changes,
+    .holdings,
+    .rules,
+    .charts {
+        padding: 15px 15px;
+        max-width: 100%;
+        margin: 0 0 30px 0;
+    }
+
+    .percent-changes h3,
+    .charts h2,
+    .rules h2 {
+        font-size: 1.4rem;
+    }
+
+    .holdings {
+        margin: 0 0 20px 0;
+    }
+
+    .collapsible {
+        font-size: 1rem;
+        padding: 12px 16px;
+    }
+
+    .content {
+        padding-left: 25px;
+    }
+
+    .chart-container {
+        height: 250px;
+    }
+}
+
+/* Extra Small devices (very small phones) */
+@media (max-width: 400px) {
+    .summary-item p {
+        font-size: 1.4rem;
+    }
+
+    .percent-changes ul li {
+        font-size: 1rem;
+    }
+
+    .rules ol li {
+        font-size: 0.95rem;
     }
 }

@@ -48,6 +48,13 @@ def update_close_prices(ticker, start_date=None, include_dividends=False):
     yf_ticker = yf.Ticker(ticker)
     hist = yf_ticker.history(start=MIN_DATE)
 
+    try:
+        info = yf_ticker.get_info()
+        long_name = info.get("longName") or info.get("shortName") or ticker
+    except Exception:
+        print(ticker)
+        long_name = ticker
+
     is_index = ticker.startswith("^")  # Index detection
     currency = "SEK" if ticker == "^OMX" else "USD" if ticker == "^GSPC" else infer_currency(ticker)
     exchange_rates = {} if is_index else get_exchange_history()
@@ -86,6 +93,10 @@ def update_close_prices(ticker, start_date=None, include_dividends=False):
                     .order_by(Holding.date.desc())
                     .first()
                 )
+                if holding:
+                    if not holding.longname or holding.longname == holding.ticker:
+                        holding.longname = long_name
+                        db.session.merge(holding)
             
                 if not holding:
                     continue
