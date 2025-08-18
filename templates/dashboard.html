@@ -86,19 +86,23 @@
 
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
     <script>
-        document.querySelectorAll('.collapsible').forEach((btn) => {
-            btn.addEventListener('click', function() {
-                this.classList.toggle('active');
-                const content = this.nextElementSibling;
-                if (content.classList.contains('expanded')) {
-                    content.classList.remove('expanded');
-                } else {
-                    content.classList.add('expanded');
-                }
-            });
-        });
+    document.querySelectorAll('.collapsible').forEach((btn) => {
+        btn.addEventListener('click', function() {
+            this.classList.toggle('active');
+            const content = this.nextElementSibling;
 
-        document.querySelectorAll('.content').forEach((c) => c.classList.remove('expanded'));
+            if (content.style.maxHeight) {
+                // Collapse
+                content.style.maxHeight = null;
+            } else {
+                // Expand to fit all content
+                content.style.maxHeight = content.scrollHeight + "px";
+            }
+        });
+    });
+
+    // Optional: collapse all on page load
+    document.querySelectorAll('.content').forEach((c) => c.style.maxHeight = null);
 
         // --- Portfolio Value Line Chart ---
         const ctxValue = document.getElementById('valueChart').getContext('2d');

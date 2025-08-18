@@ -14,6 +14,7 @@ class Holding(db.Model):
     date = db.Column(db.Date, nullable=False)
     shares = db.Column(db.Integer, nullable=False)
     longname = db.Column(db.String, nullable=False)
+    sector = db.Column(db.String, nullable=False)
 
 class Cash(db.Model):
     id = db.Column(db.Integer, primary_key=True)

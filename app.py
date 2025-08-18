@@ -94,6 +94,22 @@ def get_index_prices(tickers, dates):
     df['date'] = pd.to_datetime(df['date'])
     return df
 
+def get_allocation_by_sector(latest_date):
+    holdings = Holding.query.filter_by(date=latest_date).all()
+    if not holdings:
+        return pd.DataFrame(columns=['sector', 'value'])
+
+    data = []
+    for h in holdings:
+        if h.sector:  # assuming sector is a field on Holding
+            price = get_latest_prices_for_holdings(latest_date, [h.ticker]).get(h.ticker)
+            if price:
+                data.append({'sector': h.sector, 'value': price * h.shares})
+
+    df = pd.DataFrame(data)
+    if not df.empty:
+        df = df.groupby('sector')['value'].sum().reset_index()
+    return df
 
 def get_allocation(latest_date):
     holdings = Holding.query.filter_by(date=latest_date).all()
@@ -247,13 +263,11 @@ def dashboard():
     line_labels = df_series["date"].dt.strftime("%Y-%m-%d").tolist()
     line_data = df_series["value"].tolist()
 
-    df_alloc = get_allocation(latest_date)
-
+    df_alloc = get_allocation_by_sector(latest_date)
     if not df_alloc.empty:
         total_value = df_alloc['value'].sum()
-
         df_alloc['percent'] = (df_alloc['value'] / total_value) * 100
-        alloc_labels = df_alloc["ticker"].tolist()
+        alloc_labels = df_alloc["sector"].tolist()
         alloc_values = df_alloc["percent"].tolist()
     else:
         alloc_labels = []
