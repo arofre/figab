@@ -364,6 +364,8 @@ intents.members = True
 intents.presences = False 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+print(bot)
+
 def get_portfolio_message():
     with app.app_context():
         all_dates = [d[0] for d in db.session.query(Holding.date).distinct().order_by(Holding.date).all()]
