@@ -360,10 +360,6 @@ async def portfolio(ctx):
     await ctx.send(msg)
 
 
-if __name__ == "__main__":
-    bot.run(TOKEN)
-
-
 def reset_everything():
     with app.app_context():
         db.drop_all()
@@ -386,8 +382,8 @@ scheduler.start()
 import threading
 
 if __name__ == "__main__":
-    #discord_thread = threading.Thread(target=lambda: bot.run(TOKEN), daemon=True)
-    #discord_thread.start()
+    discord_thread = threading.Thread(target=lambda: bot.run(TOKEN), daemon=True)
+    discord_thread.start()
 
     try:
         port = int(os.environ.get("PORT", 8080))
