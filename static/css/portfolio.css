@@ -140,7 +140,7 @@ header h1 {
 }
 
 .content.expanded {
-    max-height: 500px;
+    max-height: 600px;
     padding: 20px 20px 20px 40px;
     box-shadow: 0 4px 8px rgb(0 0 0 / 0.1);
 }

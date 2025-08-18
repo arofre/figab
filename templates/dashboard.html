@@ -3,30 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portfolio Dashboard</title>
+    <title>FIGAB INVEST AB</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/portfolio.css') }}" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/dist/date-fns.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+
 </head>
 <body>
     <header>
-        <h1>Portfolio Dashboard</h1>
+        <h1>Portfölj dashboard</h1>
     </header>
 
     <section class="summary">
         <div class="summary-item">
-            <h2>Total Portfolio Value</h2>
+            <h2>Totalt värde</h2>
             <p>{{ latest_value }} SEK</p>
         </div>
         <div class="summary-item">
-            <h2>Total Liquid Funds</h2>
+            <h2>Likviditet</h2>
             <p>{{ cash }} SEK</p>
         </div>
     </section>
 
     <section class="percent-changes">
-        <h3>Percent Changes</h3>
+        <h3>Procentuell förändring</h3>
         <ul>
             {% for key, value in pct_changes.items() %}
                 <li>{{ key }}: {{ "%.2f"|format(value) if value is not none else "N/A" }}%</li>
@@ -36,7 +38,7 @@
 
     <section class="holdings">
         <div class="collapsible">
-            <span class="arrow">▶</span> Current Holdings
+            <span class="arrow">▶</span> Nuvarande innehav
         </div>
         <div class="content">
             <ul>
@@ -47,7 +49,7 @@
         </div>
 
         <div class="collapsible">
-            <span class="arrow">▶</span> Past Holdings
+            <span class="arrow">▶</span> Tidigare innehav
         </div>
         <div class="content">
             <ul>
@@ -59,25 +61,25 @@
     </section>
 
     <section class="charts">
-        <h2>Portfolio Value Over Time</h2>
+        <h2>Portföljens utveckling</h2>
         <div class="chart-container">
             <canvas id="valueChart"></canvas>
         </div>
 
-        <h2>Portfolio Allocation</h2>
+        <h2>Portfölj fördelning</h2>
         <div class="chart-container">
             <canvas id="allocationChart"></canvas>
         </div>
     </section>
 
     <section class="rules">
-        <h2>Stadgar (Rules)</h2>
+        <h2>Stadgar</h2>
         <ol>
             <li>Tredje tisdagen varje kalendermånad ska alla investeringar ifrågasättas. Majoritet krävs för beslut om köp/försäljning.</li>
             <li>Portföljen ska innehålla mellan 10–15 olika aktieinvesteringar.</li>
             <li>Diversifiering mellan sektorer ska premieras; koncentration i en sektor ska undvikas.</li>
             <li>Cash, räntepapper eller guld prioriteras framför värdepapper utan övertygelse.</li>
-            <li>Stämma öppnas med en allmän skål med whiskey.</li>
+            <li>Stämma öppnas med en allmän skål med whisky.</li>
             <li>Endast Ordförande kan utse övriga medlemmar till roller inom FIGAB INVEST AB.</li>
         </ol>
     </section>
