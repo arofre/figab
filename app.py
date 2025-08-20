@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, date
 import os
 
+import numpy as np
 import pandas as pd
 from flask import Flask, render_template, request, Response, redirect, url_for, flash
 from sqlalchemy import func, select
@@ -26,6 +27,17 @@ with app.app_context():
     if db.session.query(HistoricalPrice).count() == 0:
         bootstrap_data()
 
+
+def beta_ratio(df1, df2):
+    return np.cov(df1, df2)[0, 1] / np.var(df2)
+
+def sharpe_ratio(asset_return, df):
+    df2 = []
+    for i in range(1,len(df)):
+        df2.append(df[i] / df[i - 1] - 1)
+
+    df2 = [x for x in df2 if x != 0]
+    return np.mean(df2) / np.std(df2, ddof=1) * np.sqrt(252)
 
 def get_latest_prices_for_holdings(date, tickers):
     if not tickers:
@@ -272,7 +284,10 @@ def dashboard():
     else:
         alloc_labels = []
         alloc_values = []
-
+    print("BETA RATIO")
+    print(beta_ratio(omx_data, line_data))
+    print("SHARPE")
+    print(sharpe_ratio(pct_changes['All Time'], line_data))
 
     y_max = round(df_series["value"].max() * 1.05, -4)
     y_min = round(df_series["value"].min() * 0.95, -4)
@@ -356,15 +371,12 @@ from models import db, Holding, Cash
 import os
 
 TOKEN = os.environ.get("DISCORD_TOKEN")
-print(TOKEN)
 
 intents = discord.Intents.default()
 intents.message_content = True  
 intents.members = True          
 intents.presences = False 
 bot = commands.Bot(command_prefix="!", intents=intents)
-
-print(bot)
 
 def get_portfolio_message():
     with app.app_context():
