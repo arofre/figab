@@ -363,74 +363,13 @@ def reset_everything():
 import os
 from apscheduler.schedulers.background import BackgroundScheduler
 
-
-import discord
-from discord.ext import commands
-from flask import Flask
-from models import db, Holding, Cash
-import os
-
-TOKEN = os.environ.get("DISCORD_TOKEN")
-
-intents = discord.Intents.default()
-intents.message_content = True  
-intents.members = True          
-intents.presences = False 
-bot = commands.Bot(command_prefix="!", intents=intents)
-
-def get_portfolio_message():
-    with app.app_context():
-        all_dates = [d[0] for d in db.session.query(Holding.date).distinct().order_by(Holding.date).all()]
-        if len(all_dates) < 2:
-            return "Not enough data"
-
-        last_date = all_dates[-1]
-        prev_date = all_dates[-2]
-
-        holdings_last = Holding.query.filter_by(date=last_date).all()
-        tickers_last = [h.ticker for h in holdings_last]
-        price_dict_last = get_latest_prices_for_holdings(last_date, tickers_last)
-
-        total_last = sum(price_dict_last.get(h.ticker, 0) * h.shares for h in holdings_last)
-        cash_last = Cash.query.filter_by(date=last_date).first()
-        if cash_last:
-            total_last += cash_last.balance
-
-        holdings_prev = Holding.query.filter_by(date=prev_date).all()
-        tickers_prev = [h.ticker for h in holdings_prev]
-        price_dict_prev = get_latest_prices_for_holdings(prev_date, tickers_prev)
-
-        total_prev = sum(price_dict_prev.get(h.ticker, 0) * h.shares for h in holdings_prev)
-        cash_prev = Cash.query.filter_by(date=prev_date).first()
-        if cash_prev:
-            total_prev += cash_prev.balance
-
-        message = (
-            f"Värdet av FIGAB {last_date}:\n"
-            f"SEK {total_last:,.2f}\n"
-        )
-        return message
-
-
-@bot.command(name="portfolio")
-async def portfolio(ctx):
-    msg = get_portfolio_message()
-    await ctx.send(msg)
-
-
-
-
 scheduler = BackgroundScheduler()
 
 scheduler.add_job(incremental_update, 'cron', hour=23, minute=0)
 
 scheduler.start()
 
-import threading
-if __name__ == "__main__":
-    discord_thread = threading.Thread(target=lambda: bot.run(TOKEN), daemon=True)
-    discord_thread.start()
-    
+if __name__ == "__main__":    
     try:
         port = int(os.environ.get("PORT", 8080))
         app.run(host="0.0.0.0", port=port)
