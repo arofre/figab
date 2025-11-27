@@ -98,7 +98,13 @@ def generate_holdings(transactions, from_date=None, to_date=None, starting_cash=
     current_date = start
     while current_date <= end:
         for ticker, tx_type, amount in tx_by_date.get(current_date, []):
-            total_value = amount * price_lookup.get((ticker, current_date), 0)
+            try:
+                total_value = amount * price_lookup.get((ticker, current_date), 0)
+            except:
+                print(f"Error fetching price for {ticker} on {current_date}")
+                print(amount)
+                print(price_lookup.get((ticker, current_date), 0))
+
             if total_value == 0:
                 continue
             if tx_type.lower() == "buy":
