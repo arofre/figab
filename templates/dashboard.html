@@ -76,7 +76,7 @@
         <h2>Stadgar</h2>
         <ol>
             <li>Tredje tisdagen varje kalendermånad ska alla investeringar ifrågasättas. Majoritet krävs för beslut om köp/försäljning.</li>
-            <li>Portföljen ska innehålla mellan 10–15 olika aktieinvesteringar.</li>
+            <li>Portföljen ska innehålla högst 8 olika aktieinvesteringar.</li>
             <li>Diversifiering mellan sektorer ska premieras; koncentration i en sektor ska undvikas.</li>
             <li>Cash, räntepapper eller guld prioriteras framför värdepapper utan övertygelse.</li>
             <li>Stämma öppnas med en allmän skål med whisky.</li>
@@ -101,72 +101,79 @@
         });
     });
 
-    // Optional: collapse all on page load
     document.querySelectorAll('.content').forEach((c) => c.style.maxHeight = null);
 
-        // --- Portfolio Value Line Chart ---
-        const ctxValue = document.getElementById('valueChart').getContext('2d');
-        const valueChart = new Chart(ctxValue, {
-            type: 'line',
-            data: {
-                labels: {{ line_labels | tojson }},
-                datasets: [
-                    {
-                        label: 'Portfolio Value',
-                        data: {{ line_data | tojson }},
-                        borderColor: 'rgba(75, 192, 192, 1)',
-                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                        fill: true,
-                        pointRadius: 1,
-                        tension: 0.2
-                    },
-                    {
-                        label: '^OMX',
-                        data: {{ omx_data | tojson }},
-                        borderColor: 'rgba(54, 162, 235, 1)',
-                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                        fill: false,
-                        pointRadius: 0,
-                        borderDash: [5, 5],
-                        tension: 0.1
-                    },
-                    {
-                        label: '^GSPC',
-                        data: {{ gspc_data | tojson }},
-                        borderColor: 'rgba(255, 99, 132, 1)',
-                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                        fill: false,
-                        pointRadius: 0,
-                        borderDash: [5, 5],
-                        tension: 0.1
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false },
-                scales: {
-                    x: {
-                        type: 'time',
-                        time: {
-                            parser: 'yyyy-MM-dd',
-                            unit: 'day',
-                            tooltipFormat: 'yyyy-MM-dd',
-                            displayFormats: { day: 'yyyy-MM-dd' }
-                        },
-                        title: { display: true, text: 'Date' },
-                        ticks: { maxRotation: 45, minRotation: 45 }
-                    },
-                    y: {
-                        max: {{ y_max }},
-                        min: {{ y_min }},
-                        title: { display: true, text: 'Value' }
-                    }
+    const ctxValue = document.getElementById('valueChart').getContext('2d');
+    const valueChart = new Chart(ctxValue, {
+        type: 'line',
+        data: {
+            labels: {{ line_labels | tojson }},
+            datasets: [
+                {
+                    label: 'Portfolio Value',
+                    data: {{ line_data | tojson }},
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    fill: true,
+                    pointRadius: 1,
+                    tension: 0.2
                 },
-                plugins: { legend: { display: true }, tooltip: { enabled: true } }
+                {
+                    label: '^OMX',
+                    data: {{ omx_data | tojson }},
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    fill: false,
+                    pointRadius: 0,
+                    borderDash: [5, 5],
+                    tension: 0.1
+                },
+                {
+                    label: '^GSPC',
+                    data: {{ gspc_data | tojson }},
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    fill: false,
+                    pointRadius: 0,
+                    borderDash: [5, 5],
+                    tension: 0.1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+
+            scales: {
+                x: {
+                    type: 'time',
+                    time: {
+                        parser: 'yyyy-MM-dd',
+                        unit: 'day',
+                        tooltipFormat: 'yyyy-MM-dd',
+                        displayFormats: { day: 'yyyy-MM-dd' }
+                    },
+                    title: { display: true, text: 'Date', color: 'white' },
+                    ticks: { color: 'white', maxRotation: 45, minRotation: 45 }
+                },
+                y: {
+                    max: {{ y_max }},
+                    min: {{ y_min }},
+                    title: { display: true, text: 'Value', color: 'white' },
+                    ticks: { color: 'white' }
+                }
+            },
+
+            plugins: {
+                legend: {
+                    display: true,
+                    labels: { color: 'white' }
+                },
+                tooltip: { enabled: true }
             }
-        });
+        }
+    });
 
         // --- Portfolio Allocation Pie Chart ---
         const ctxAlloc = document.getElementById('allocationChart').getContext('2d');
@@ -193,8 +200,11 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: true },
-                    tooltip: {
+                legend: {
+                    display: true,
+                    labels: { color: 'white' }
+                },
+                tooltip: {
                         callbacks: {
                             label: function(context) {
                                 const label = context.label || '';
