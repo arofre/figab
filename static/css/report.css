@@ -1,0 +1,87 @@
+/* --- Base Styles --- */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: "Inter", system-ui, sans-serif; background: #f4f6f8; color: #1f2937; line-height: 1.6; }
+h1,h2,h3,h4,h5,h6 { margin-bottom: 0.5rem; }
+
+/* --- Top Menu --- */
+header { background: #ffffff; padding: 15px 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 1000; }
+.top-bar { display: flex; justify-content: space-between; align-items: center; }
+#menu ul { display: flex; list-style: none; gap: 20px; }
+#menu a { text-decoration: none; color: #1f2937; font-weight: 500; transition: color 0.2s; }
+#menu a:hover { color: #3a86ff; }
+
+/* --- Report Page Title --- */
+.report-page-title {
+    text-align: center;
+    font-size: 2rem;
+    font-weight: 600;
+    color: #3a86ff;
+    margin-bottom: 25px;
+    position: relative;
+    margin-top: 25px;
+}
+.report-page-title::after {
+    content: "";
+    display: block;
+    width: 80px;
+    height: 3px;
+    background: #3a86ff;
+    margin: 10px auto 0 auto;
+    border-radius: 2px;
+}
+
+/* --- PDF Report List --- */
+.report-list {
+    max-width: 800px;
+    margin: 0 auto 40px auto;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+.report-list li {
+    background: #ffffff;
+    padding: 15px 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+}
+.report-list li:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+    background: #f1f5f9;
+}
+.report-list a {
+    text-decoration: none;
+    color: #1f2937;
+    font-weight: 500;
+    font-size: 1rem;
+    display: block;
+}
+.report-list a:hover {
+    color: #3a86ff;
+}
+
+/* --- Dark Mode --- */
+@media (prefers-color-scheme: dark) {
+    body { background: #121821; color: #e2e7e5; }
+
+    header { background: #1e293b; box-shadow: 0 2px 8px rgba(0,0,0,0.5); }
+    #menu a { color: #e2e7e5; }
+    #menu a:hover { color: #3a86ff; }
+
+    .report-page-title { color: #3a86ff; }
+    .report-page-title::after { background: #3a86ff; }
+
+    .report-list li {
+        background: #1e293b;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+    .report-list li:hover {
+        background: #152136;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.7);
+    }
+    .report-list a { color: #e2e7e5; }
+    .report-list a:hover { color: #3a86ff; }
+}

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FIGAB CAPITAL PARTNERS</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/report.css') }}">
+<link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+</head>
+<body>
+<header>
+    <div class="top-bar">
+        <h1>FIGAB CAPITAL PARTNERS</h1>
+        <nav id="menu">
+            <ul>
+                <li><a href="/">Home</a></li>
+                <li><a href="/reports">Reports</a></li>
+            </ul>
+        </nav>
+    </div>
+</header>
+<body>
+    <div class="report-page">
+        <h2 class="report-page-title">Available Reports</h2>
+        <ul class="report-list">
+        {% for report in report_list %}
+            <li><a href="/reports/{{ report }}" target="_blank">{{ report }}</a></li>
+        {% endfor %}
+        </ul>
+    </div>
+</body>
+
+</html>

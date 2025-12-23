@@ -45,9 +45,20 @@
     <button type="submit" style="background-color: #e74c3c; color: white;">Reset Database</button>
   </form>
 
+  <form id="cache-form" action="/cache" method="get" onsubmit="return confirmReset()" style="margin-top: 40px;">
+    <button type="submit" style="background-color: #e73cdc; color: white;">Cache</button>
+  </form>
+
   <form id="increment-form" action="/increment" method="get" onsubmit="return confirmReset()" style="margin-top: 40px;">
     <button type="submit" style="background-color: #e74c3c; color: white;">Increment</button>
   </form>
+
+  <div id="transaction-container">
+    <form action = "/success" method = "post" enctype="multipart/form-data">  
+    <input type="file" name="file" />  
+    <input type = "submit" value="Upload">  
+    </form>  
+  </div>
 
   <script>
     function confirmReset() {
