@@ -212,6 +212,26 @@ def authenticate():
         {'WWW-Authenticate': 'Basic realm="Login Required"'}
     )
 
+@app.route("/delete_report", methods=["POST"])
+def delete_report():
+    auth = request.authorization
+    if not auth or not check_auth(auth.username, auth.password):
+        return authenticate()
+    
+    filename = request.form.get("delete_file", "").strip()
+    if not filename:
+        flash("Please provide a filename.")
+        return redirect(url_for("admin_dashboard"))
+
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        flash(f"File '{filename}' deleted successfully.")
+    else:
+        flash(f"File '{filename}' does not exist.")
+    
+    return redirect(url_for("admin_dashboard"))
 
 @app.route("/reports/<path:filename>", endpoint="custom_reports")
 def reports(filename):
@@ -339,7 +359,6 @@ def compute_dashboard_data():
     first_date = series.index[0]
     today_val = series.iloc[-1]
     now = pd.Timestamp.now().normalize()
-
     pct_changes = {
         "This Week": percent_change(series, now - timedelta(days=7), today_val),
         "This Month": percent_change(series, now.replace(day=1), today_val),
@@ -403,16 +422,16 @@ def reset_everything():
 import os
 from apscheduler.schedulers.background import BackgroundScheduler
 
-scheduler = BackgroundScheduler()
 
-scheduler.add_job(incremental_update, 'cron', hour=23, minute=0)
-
-scheduler.start()
 
 
 if __name__ == "__main__":    
     try:
+        scheduler = BackgroundScheduler()
 
+        scheduler.add_job(incremental_update, 'cron', hour=23, minute=0)
+
+        scheduler.start()
         
         port = int(os.environ.get("PORT", 8080))
         app.run(host="0.0.0.0", port=port)
