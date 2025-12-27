@@ -1,14 +1,17 @@
 from datetime import datetime, timedelta, date
 import os
 import json
-
+import threading
 import numpy as np
 import pandas as pd
 from flask import Flask, render_template, request, Response, redirect, url_for, flash, send_from_directory
 from sqlalchemy import func, select
 from apscheduler.schedulers.background import BackgroundScheduler
-from collections import defaultdict
+from apscheduler.schedulers.blocking import BlockingScheduler
 
+from collections import defaultdict
+import json
+import bisect
 from models import db, Holding, HistoricalPrice, Cash, Dividend
 from bootstrap import bootstrap_data, load_transactions, generate_holdings, DEFAULT_START_DATE, STARTING_CASH
 from update import update_close_prices
@@ -47,27 +50,20 @@ def sharpe_ratio(prices):
 def get_latest_prices_for_holdings(date, tickers):
     if not tickers:
         return {}
-    
-    subq = (
-        db.session.query(
-            HistoricalPrice.ticker,
-            func.max(HistoricalPrice.date).label('max_date')
-        )
-        .filter(
-            HistoricalPrice.ticker.in_(tickers),
-            HistoricalPrice.date <= date
-        )
-        .group_by(HistoricalPrice.ticker)
-        .subquery()
-    )
 
-    latest_prices = (
-        db.session.query(HistoricalPrice.ticker, HistoricalPrice.close)
-        .join(subq, (HistoricalPrice.ticker == subq.c.ticker) & (HistoricalPrice.date == subq.c.max_date))
+    rows = (
+        db.session.query(HistoricalPrice)
+        .filter(HistoricalPrice.ticker.in_(tickers))
+        .filter(HistoricalPrice.date <= date)
+        .order_by(HistoricalPrice.ticker, HistoricalPrice.date.desc())
         .all()
     )
 
-    return {ticker: price for ticker, price in latest_prices}
+    out = {}
+    for row in rows:
+        if row.ticker not in out:
+            out[row.ticker] = row.close   
+    return out
 
 @app.route("/increment")
 def incremental_update():
@@ -243,7 +239,6 @@ def dashboard():
     if not os.path.exists(cache_file):
         return "Dashboard data not available. Please run /increment first."
 
-    import json
     with open(cache_file) as f:
         data = json.load(f)
 
@@ -317,99 +312,160 @@ def admin_dashboard():
 
     return render_template("admin.html")
 
+
 @app.route("/cache")
 def compute_dashboard_data():
+    """Fastest possible dashboard rebuild. Only O(n) operations."""
     auth = request.authorization
     if not auth or not check_auth(auth.username, auth.password):
         return authenticate()
-    
-    all_dates = [d[0] for d in db.session.query(Holding.date).distinct().order_by(Holding.date).all()]
+
+    # ---------------------------------------
+    # 1) BULK LOAD ALL TABLES IN MEMORY
+    # ---------------------------------------
+    holdings = Holding.query.all()
+    dividends = Dividend.query.all()
+    cash_entries = Cash.query.all()
+    prices = HistoricalPrice.query.all()
+
+    if not holdings:
+        return redirect(url_for("dashboard"))
+
+    # ---------------------------------------
+    # 2) FAST STRUCTURES
+    # ---------------------------------------
+    holdings_by_date = defaultdict(list)
+    for h in holdings:
+        holdings_by_date[h.date].append(h)
+
+    dividends_by_date = defaultdict(list)
+    for d in dividends:
+        dividends_by_date[d.date].append(d)
+
+    cash_by_date = {c.date: c.balance for c in cash_entries}
+
+    # Price → ticker → sorted list of (date, close)
+    price_lookup = defaultdict(list)
+    for p in prices:
+        price_lookup[p.ticker].append((p.date, p.close))
+
+    for t in price_lookup:
+        price_lookup[t].sort()
+
+    def get_price(ticker, dt):
+        """SQLite-safe binary search for most recent price before date."""
+        lst = price_lookup.get(ticker)
+        if not lst:
+            return None
+        idx = bisect.bisect_right(lst, (dt, 10**12)) - 1
+        if idx >= 0:
+            return lst[idx][1]
+        return None
+
+    all_dates = sorted(holdings_by_date.keys())
     if not all_dates:
-        return
+        return redirect(url_for("dashboard"))
 
-    current_holdings = get_current_holdings_longnames()
-    past_holdings = get_past_holdings_longnames(current_holdings)
+    # ---------------------------------------
+    # 3) BUILD PORTFOLIO TIME SERIES
+    # ---------------------------------------
+    portfolio_values = {}
 
-    portfolio_values = []
     for dt in all_dates:
-        holdings = Holding.query.filter_by(date=dt).all()
-        cash_entry = Cash.query.filter_by(date=dt).first()
-        cash = cash_entry.balance if cash_entry else 0
+        total = cash_by_date.get(dt, 0)
 
-        dividends = Dividend.query.filter_by(date=dt).all()
-        for div in dividends:
-            holding = next((h for h in holdings if h.ticker == div.ticker), None)
-            if holding:
-                cash += div.amount * holding.shares
+        # dividends
+        for div in dividends_by_date.get(dt, []):
+            # get shares at this date
+            shares = 0
+            for h in holdings_by_date[dt]:
+                if h.ticker == div.ticker:
+                    shares = h.shares
+                    break
+            total += div.amount * shares
 
-        tickers = [h.ticker for h in holdings]
-        price_dict = get_latest_prices_for_holdings(dt, tickers)
-
-        total_value = cash
-        for h in holdings:
-            price = price_dict.get(h.ticker)
+        # holdings
+        for h in holdings_by_date[dt]:
+            price = get_price(h.ticker, dt)
             if price:
-                total_value += price * h.shares
+                total += h.shares * price
 
-        portfolio_values.append((dt, total_value))
+        portfolio_values[dt] = total
 
-    series = pd.Series(dict(portfolio_values))
+    # Convert to pandas for metrics
+    series = pd.Series(portfolio_values)
     series.index = pd.to_datetime(series.index)
+
     latest_date = series.index[-1]
     first_date = series.index[0]
     today_val = series.iloc[-1]
+
     now = pd.Timestamp.now().normalize()
+
+    def pct_change(start_dt):
+        """Percent change relative to the latest value."""
+        try:
+            past = series.loc[:start_dt].iloc[-1]
+            return (today_val - past) / past * 100
+        except:
+            return None
+
     pct_changes = {
-        "This Week": percent_change(series, now - timedelta(days=7), today_val),
-        "This Month": percent_change(series, now.replace(day=1), today_val),
-        "This Year": percent_change(series, now.replace(month=1, day=1), today_val),
-        "All Time": percent_change(series, first_date, today_val),
+        "This Week": pct_change(now - timedelta(days=7)),
+        "This Month": pct_change(now.replace(day=1)),
+        "This Year": pct_change(now.replace(month=1, day=1)),
+        "All Time": pct_change(first_date)
     }
 
     df_series = series.reset_index()
     df_series.columns = ["date", "value"]
-    df_series["date"] = pd.to_datetime(df_series["date"])
+
+    line_labels = df_series["date"].dt.strftime("%Y-%m-%d").tolist()
+    line_data = df_series["value"].tolist()
+
+    y_max = round(max(line_data) * 1.05, -4)
+    y_min = round(min(line_data) * 0.95, -4)
+
+    # holdings lists
+    current_holdings = list({h.longname for h in holdings_by_date[latest_date] if h.longname})
+    all_longnames = {h.longname for h in holdings}
+    past_holdings = list(all_longnames - set(current_holdings))
+
 
     index_tickers = ['^OMX', '^GSPC']
     index_prices_df = get_index_prices(index_tickers, series.index)
     index_pivot = index_prices_df.pivot(index='date', columns='ticker', values='close')
 
-    omx_data_temp = index_pivot.get('^OMX', pd.Series()).reindex(series.index).fillna(method='ffill')
-    omx_data = [x * 150000 / omx_data_temp.iloc[0] for x in omx_data_temp]
+    # OMX
+    omx_temp = index_pivot.get('^OMX', pd.Series()).reindex(series.index).fillna(method='ffill')
+    omx_data = [x * 150_000 / omx_temp.iloc[0] for x in omx_temp]
 
-    gspc_data_temp = index_pivot.get('^GSPC', pd.Series()).reindex(series.index).fillna(method='ffill')
-    gspc_data = [x * 150000 / gspc_data_temp.iloc[0] for x in gspc_data_temp]
+    # GSPC
+    gspc_temp = index_pivot.get('^GSPC', pd.Series()).reindex(series.index).fillna(method='ffill')
+    gspc_data = [x * 150_000 / gspc_temp.iloc[0] for x in gspc_temp]
 
-    line_labels = df_series["date"].dt.strftime("%Y-%m-%d").tolist()
-    line_data = df_series["value"].tolist()
 
-    y_max = round(df_series["value"].max() * 1.05, -4)
-    y_min = round(df_series["value"].min() * 0.95, -4)
-
-    latest_cash_entry = Cash.query.filter_by(date=latest_date).first()
-    cash_val = latest_cash_entry.balance if latest_cash_entry else 0
-
-    dashboard_cache = {
-        "latest_value": round(today_val, 2),
-        "pct_changes": pct_changes,
-        "line_labels": line_labels,
-        "line_data": line_data,
-        "omx_data": omx_data,
-        "gspc_data": gspc_data,
-        "y_max": y_max,
-        "y_min": y_min,
-        "cash": round(cash_val),
-        "current": current_holdings,
-        "past": past_holdings,
-    }
-
+    # ---------------------------------------
+    # 4) WRITE DASHBOARD CACHE FILE
+    # ---------------------------------------
     cache_file = os.path.join(app.root_path, "static", "dashboard_cache.json")
     with open(cache_file, "w") as f:
-        json.dump(dashboard_cache, f)
+        json.dump({
+            "latest_value": round(today_val, 2),
+            "pct_changes": pct_changes,
+            "line_labels": line_labels,
+            "line_data": line_data,
+            "omx_data": omx_data,
+            "gspc_data": gspc_data,
+            "y_max": y_max,
+            "y_min": y_min,
+            "cash": round(cash_by_date.get(latest_date, 0)),
+            "current": current_holdings,
+            "past": past_holdings,
+        }, f)
 
     print("Dashboard cache updated.")
-        
-    return redirect(url_for('dashboard'))
+    return redirect(url_for("dashboard"))
 
 
 

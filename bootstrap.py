@@ -93,17 +93,19 @@ def generate_holdings(transactions, from_date=None, to_date=None, starting_cash=
         dividend_by_date[div.date].append(div)
     tickers = {tx[1] for tx in transactions}
     price_entries = HistoricalPrice.query.filter(HistoricalPrice.ticker.in_(tickers), HistoricalPrice.date >= start, HistoricalPrice.date <= end).all()
-    price_lookup = {(p.ticker, p.date): p.close for p in price_entries}
+    price_lookup = defaultdict(dict)
+    for p in price_entries:
+        price_lookup[p.date][p.ticker] = p.close
     current_cash = starting_cash if from_date and starting_cash is not None else STARTING_CASH
     current_date = start
     while current_date <= end:
         for ticker, tx_type, amount in tx_by_date.get(current_date, []):
             try:
-                total_value = amount * price_lookup.get((ticker, current_date), 0)
+                total_value = amount * price_lookup[current_date].get(ticker, 0)
             except:
                 print(f"Error fetching price for {ticker} on {current_date}")
                 print(amount)
-                print(price_lookup.get((ticker, current_date), 0))
+                print(price_lookup[current_date].get(ticker, 0))
 
             if total_value == 0:
                 continue
