@@ -8,7 +8,6 @@ from flask import Flask, render_template, request, Response, redirect, url_for, 
 from sqlalchemy import func, select
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.blocking import BlockingScheduler
-
 from collections import defaultdict
 import json
 import bisect
@@ -65,35 +64,64 @@ def get_latest_prices_for_holdings(date, tickers):
             out[row.ticker] = row.close   
     return out
 
+import threading
+from flask import jsonify
+
 @app.route("/increment")
 def incremental_update():
-    """Fetch only new data since our last date and append holdings/cash"""
-    with app.app_context():
-        last_price_date = db.session.query(func.max(HistoricalPrice.date)).scalar()
-        start_date = (last_price_date + timedelta(days=1)) if last_price_date else DEFAULT_START_DATE
+    """
+    Run the portfolio increment in a background thread to avoid web request timeouts.
+    Returns immediately to the user.
+    """
 
-        tickers = [t[0] for t in db.session.query(HistoricalPrice.ticker).distinct().all()]
-        for ticker in tickers:
-            update_close_prices(ticker, start_date=start_date)
+    def background_increment():
+        """The actual heavy computation."""
+        from sqlalchemy import func
+        with app.app_context():
+            # Determine start date
+            last_price_date = db.session.query(func.max(HistoricalPrice.date)).scalar()
+            start_date = (last_price_date + timedelta(days=1)) if last_price_date else DEFAULT_START_DATE
 
-        last_holding_date = db.session.query(func.max(Holding.date)).scalar()
-        txs, _ = load_transactions("transactions.csv")
-        from_date = (last_holding_date + timedelta(days=1)) if last_holding_date else DEFAULT_START_DATE
-        to_date = date.today()
-        starting_cash = (db.session.query(Cash.balance)
-                         .filter(Cash.date == last_holding_date)
-                         .scalar()) if last_holding_date else STARTING_CASH
+            # Fetch distinct tickers
+            tickers = [t[0] for t in db.session.query(HistoricalPrice.ticker).distinct().all()]
 
-        generate_holdings(
-            transactions=txs,
-            from_date=from_date,
-            to_date=to_date,
-            starting_cash=starting_cash
-        )
+            # Update prices for each ticker
+            for ticker in tickers:
+                try:
+                    update_close_prices(ticker, start_date=start_date)
+                except Exception as e:
+                    print(f"Failed to update {ticker}: {e}")
 
-        compute_dashboard_data()
+            # Update holdings
+            last_holding_date = db.session.query(func.max(Holding.date)).scalar()
+            txs, _ = load_transactions("transactions.csv")
+            from_date = (last_holding_date + timedelta(days=1)) if last_holding_date else DEFAULT_START_DATE
+            to_date = date.today()
+            starting_cash = (
+                db.session.query(Cash.balance).filter(Cash.date == last_holding_date).scalar()
+                if last_holding_date else STARTING_CASH
+            )
 
-    return redirect(url_for('dashboard'))
+            generate_holdings(
+                transactions=txs,
+                from_date=from_date,
+                to_date=to_date,
+                starting_cash=starting_cash
+            )
+
+            # Rebuild dashboard cache
+            compute_dashboard_data_internal()
+
+        print("Incremental update finished.")
+
+    # Start background thread
+    thread = threading.Thread(target=background_increment, daemon=True)
+    thread.start()
+
+    # Return immediately
+    return jsonify({"status": "Incremental update started in background"}), 202
+
+
 
 
 def get_index_prices(tickers, dates):
@@ -275,7 +303,7 @@ def reset_db():
         return authenticate()
 
     reset_everything()
-    compute_dashboard_data()
+    compute_dashboard_data_internal()
 
     return redirect(url_for('dashboard'))
 
@@ -312,13 +340,17 @@ def admin_dashboard():
 
     return render_template("admin.html")
 
-
 @app.route("/cache")
 def compute_dashboard_data():
-    """Fastest possible dashboard rebuild. Only O(n) operations."""
     auth = request.authorization
     if not auth or not check_auth(auth.username, auth.password):
         return authenticate()
+    compute_dashboard_data_internal()
+    return redirect(url_for("dashboard"))
+
+def compute_dashboard_data_internal():
+    """Fastest possible dashboard rebuild. Only O(n) operations."""
+
 
     # ---------------------------------------
     # 1) BULK LOAD ALL TABLES IN MEMORY
@@ -343,6 +375,7 @@ def compute_dashboard_data():
         dividends_by_date[d.date].append(d)
 
     cash_by_date = {c.date: c.balance for c in cash_entries}
+    
 
     # Price → ticker → sorted list of (date, close)
     price_lookup = defaultdict(list)
@@ -459,14 +492,12 @@ def compute_dashboard_data():
             "gspc_data": gspc_data,
             "y_max": y_max,
             "y_min": y_min,
-            "cash": round(cash_by_date.get(latest_date, 0)),
+            "cash": round(cash_by_date[latest_date.date()]),
             "current": current_holdings,
             "past": past_holdings,
         }, f)
 
     print("Dashboard cache updated.")
-    return redirect(url_for("dashboard"))
-
 
 
 def reset_everything():
@@ -476,7 +507,6 @@ def reset_everything():
         bootstrap_data()
 
 import os
-from apscheduler.schedulers.background import BackgroundScheduler
 
 
 
@@ -488,7 +518,7 @@ if __name__ == "__main__":
         scheduler.add_job(incremental_update, 'cron', hour=23, minute=0)
 
         scheduler.start()
-        
+        print("hej")
         port = int(os.environ.get("PORT", 8080))
         app.run(host="0.0.0.0", port=port)
     except (KeyboardInterrupt, SystemExit):
