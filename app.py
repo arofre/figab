@@ -429,7 +429,7 @@ def compute_dashboard_data_internal():
     series = pd.Series(portfolio_values)
     series.index = pd.to_datetime(series.index)
 
-    latest_date = series.index[-1]
+    latest_date = series.index[-1].date()
     first_date = series.index[0]
     today_val = series.iloc[-1]
 
@@ -492,7 +492,7 @@ def compute_dashboard_data_internal():
             "gspc_data": gspc_data,
             "y_max": y_max,
             "y_min": y_min,
-            "cash": round(cash_by_date[latest_date.date()]),
+            "cash": round(cash_by_date.get(latest_date, 0)),
             "current": current_holdings,
             "past": past_holdings,
         }, f)
