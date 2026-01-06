@@ -513,13 +513,7 @@ import os
 
 if __name__ == "__main__":    
     try:
-        scheduler = BackgroundScheduler()
-
-        scheduler.add_job(incremental_update, 'cron', hour=23, minute=0)
-
-        scheduler.start()
-        print("hej")
         port = int(os.environ.get("PORT", 8080))
         app.run(host="0.0.0.0", port=port)
     except (KeyboardInterrupt, SystemExit):
-        scheduler.shutdown()
+        pass
