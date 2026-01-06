@@ -26,6 +26,7 @@ app.secret_key = os.environ.get("SECRET_KEY", "fallback-dev-key")
 db.init_app(app)
 
 
+
 with app.app_context():
     db.create_all()
     if db.session.query(HistoricalPrice).count() == 0:
@@ -509,6 +510,10 @@ def reset_everything():
 import os
 
 
+scheduler = BackgroundScheduler()
+scheduler.add_job(incremental_update, 'cron', hour=23, minute=0)
+scheduler.start()
+scheduler.add_job(incremental_update, 'date', run_date=datetime.datetime.now() + datetime.timedelta(seconds=10))
 
 
 if __name__ == "__main__":    
