@@ -6,8 +6,10 @@ import numpy as np
 import pandas as pd
 from flask import Flask, render_template, request, Response, redirect, url_for, flash, send_from_directory
 from sqlalchemy import func, select
+from flask_apscheduler import APScheduler
 from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger
 from collections import defaultdict
 import json
 import bisect
@@ -17,6 +19,8 @@ from update import update_close_prices
 
 
 app = Flask(__name__)
+scheduler = APScheduler()
+
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///prices.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 UPLOAD_FOLDER = os.path.join(app.root_path, 'static/reports')
@@ -68,61 +72,63 @@ def get_latest_prices_for_holdings(date, tickers):
 import threading
 from flask import jsonify
 
+def run_incremental_update():
+    from sqlalchemy import func
+
+    with app.app_context():
+        last_price_date = db.session.query(func.max(HistoricalPrice.date)).scalar()
+        start_date = (last_price_date + timedelta(days=1)) if last_price_date else DEFAULT_START_DATE
+
+        tickers = [t[0] for t in db.session.query(HistoricalPrice.ticker).distinct().all()]
+
+        for ticker in tickers:
+            try:
+                update_close_prices(ticker, start_date=start_date)
+            except Exception as e:
+                print(f"Failed to update {ticker}: {e}")
+
+        last_holding_date = db.session.query(func.max(Holding.date)).scalar()
+        txs, _ = load_transactions("transactions.csv")
+        from_date = (last_holding_date + timedelta(days=1)) if last_holding_date else DEFAULT_START_DATE
+        to_date = date.today()
+
+        starting_cash = (
+            db.session.query(Cash.balance)
+            .filter(Cash.date == last_holding_date)
+            .scalar()
+            if last_holding_date else STARTING_CASH
+        )
+
+        generate_holdings(
+            transactions=txs,
+            from_date=from_date,
+            to_date=to_date,
+            starting_cash=starting_cash
+        )
+
+        compute_dashboard_data_internal()
+
+    print("Incremental update finished.")
+
+@scheduler.task(
+    "cron",
+    id="daily_incremental_update",
+    hour=16,
+    minute=30,
+    misfire_grace_time=300
+)
+def scheduled_incremental_update():
+    run_incremental_update()
+
 @app.route("/increment")
 def incremental_update():
-    """
-    Run the portfolio increment in a background thread to avoid web request timeouts.
-    Returns immediately to the user.
-    """
-
-    def background_increment():
-        """The actual heavy computation."""
-        from sqlalchemy import func
-        with app.app_context():
-            # Determine start date
-            last_price_date = db.session.query(func.max(HistoricalPrice.date)).scalar()
-            start_date = (last_price_date + timedelta(days=1)) if last_price_date else DEFAULT_START_DATE
-
-            # Fetch distinct tickers
-            tickers = [t[0] for t in db.session.query(HistoricalPrice.ticker).distinct().all()]
-
-            # Update prices for each ticker
-            for ticker in tickers:
-                try:
-                    update_close_prices(ticker, start_date=start_date)
-                except Exception as e:
-                    print(f"Failed to update {ticker}: {e}")
-
-            # Update holdings
-            last_holding_date = db.session.query(func.max(Holding.date)).scalar()
-            txs, _ = load_transactions("transactions.csv")
-            from_date = (last_holding_date + timedelta(days=1)) if last_holding_date else DEFAULT_START_DATE
-            to_date = date.today()
-            starting_cash = (
-                db.session.query(Cash.balance).filter(Cash.date == last_holding_date).scalar()
-                if last_holding_date else STARTING_CASH
-            )
-
-            generate_holdings(
-                transactions=txs,
-                from_date=from_date,
-                to_date=to_date,
-                starting_cash=starting_cash
-            )
-
-            # Rebuild dashboard cache
-            compute_dashboard_data_internal()
-
-        print("Incremental update finished.")
-
-    # Start background thread
-    thread = threading.Thread(target=background_increment, daemon=True)
+    thread = threading.Thread(
+        target=run_incremental_update,
+        daemon=True
+    )
     thread.start()
 
-    # Return immediately
-    return jsonify({"status": "Incremental update started in background"}), 202
-
-
+    return jsonify({"status": "Incremental update started"}), 202
 
 
 def get_index_prices(tickers, dates):
@@ -510,14 +516,14 @@ def reset_everything():
 import os
 
 
-scheduler = BackgroundScheduler()
-scheduler.add_job(incremental_update, 'cron', hour=23, minute=0)
-scheduler.start()
-scheduler.add_job(incremental_update, 'date', run_date=datetime.now() + timedelta(seconds=10))
+
 
 
 if __name__ == "__main__":    
     try:
+        scheduler.init_app(app)
+        scheduler.start()
+
         port = int(os.environ.get("PORT", 8080))
         app.run(host="0.0.0.0", port=port)
     except (KeyboardInterrupt, SystemExit):
