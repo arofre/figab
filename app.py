@@ -114,7 +114,7 @@ def run_incremental_update():
 @scheduler.task(
     "cron",
     id="daily_incremental_update",
-    hour=16,
+    hour=23,
     minute=45,
     misfire_grace_time=300
 )
