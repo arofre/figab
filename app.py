@@ -20,7 +20,8 @@ from update import update_close_prices
 
 app = Flask(__name__)
 scheduler = APScheduler()
-
+scheduler.init_app(app)
+scheduler.start()
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///prices.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 UPLOAD_FOLDER = os.path.join(app.root_path, 'static/reports')
@@ -74,7 +75,7 @@ from flask import jsonify
 
 def run_incremental_update():
     from sqlalchemy import func
-
+    print("incremental update started")
     with app.app_context():
         last_price_date = db.session.query(func.max(HistoricalPrice.date)).scalar()
         start_date = (last_price_date + timedelta(days=1)) if last_price_date else DEFAULT_START_DATE
@@ -114,7 +115,7 @@ def run_incremental_update():
     "cron",
     id="daily_incremental_update",
     hour=16,
-    minute=30,
+    minute=45,
     misfire_grace_time=300
 )
 def scheduled_incremental_update():
@@ -521,8 +522,7 @@ import os
 
 if __name__ == "__main__":    
     try:
-        scheduler.init_app(app)
-        scheduler.start()
+
 
         port = int(os.environ.get("PORT", 8080))
         app.run(host="0.0.0.0", port=port)
