@@ -513,7 +513,7 @@ import os
 scheduler = BackgroundScheduler()
 scheduler.add_job(incremental_update, 'cron', hour=23, minute=0)
 scheduler.start()
-scheduler.add_job(incremental_update, 'date', run_date=datetime.now() + datetime.timedelta(seconds=10))
+scheduler.add_job(incremental_update, 'date', run_date=datetime.now() + timedelta(seconds=10))
 
 
 if __name__ == "__main__":    
