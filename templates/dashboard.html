@@ -55,6 +55,7 @@
                     <button onclick="setTimeRange('1m')">1 m.</button>
                     <button onclick="setTimeRange('3m')">3 m.</button>
                     <button onclick="setTimeRange('1y')">1 yr.</button>
+                    <button onclick="setTimeRange('ytd')">YTD</button>
                     <button onclick="setTimeRange('all')">All</button>
                 </div>
             </div>
@@ -65,7 +66,6 @@
 
 <section class="info-sections">
 
-    <!-- Left column: Nuvarande + Tidigare innehav -->
     <div class="info-column">
         <div class="collapsible-section">
             <div class="collapsible-header">
@@ -231,6 +231,7 @@ function setTimeRange(range) {
     if(range==='1m'){ fromDate = new Date(now.setMonth(now.getMonth()-1)); }
     else if(range==='3m'){ fromDate = new Date(now.setMonth(now.getMonth()-3)); }
     else if(range==='1y'){ fromDate = new Date(now.setFullYear(now.getFullYear()-1)); }
+    else if(range==='ytd'){ fromDate = new Date(now.getFullYear(),0,1); }
     else{ fromDate = new Date('1970-01-01'); }
 
     let fLabels=[], fPortfolio=[], fOMX=[], fGSPC=[];
