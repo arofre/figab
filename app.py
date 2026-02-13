@@ -1,11 +1,10 @@
-from datetime import datetime, timedelta, date
+import datetime
 import os
 import json
 import threading
 import numpy as np
 import pandas as pd
 from flask import Flask, render_template, request, Response, redirect, url_for, flash, send_from_directory
-from sqlalchemy import func, select
 from flask_apscheduler import APScheduler
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -13,30 +12,21 @@ from apscheduler.triggers.cron import CronTrigger
 from collections import defaultdict
 import json
 import bisect
-from models import db, Holding, HistoricalPrice, Cash, Dividend
-from bootstrap import bootstrap_data, load_transactions, generate_holdings, DEFAULT_START_DATE, STARTING_CASH
-from update import update_close_prices
-
+from portfolio_tracker.portfolio import Portfolio_tracker
+from dateutil.relativedelta import relativedelta
+import threading
+from flask import jsonify
 
 app = Flask(__name__)
 scheduler = APScheduler()
 scheduler.init_app(app)
 scheduler.start()
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///prices.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 UPLOAD_FOLDER = os.path.join(app.root_path, 'static/reports')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.secret_key = os.environ.get("SECRET_KEY", "fallback-dev-key")
 
-db.init_app(app)
-
-
-
 with app.app_context():
-    db.create_all()
-    if db.session.query(HistoricalPrice).count() == 0:
-        bootstrap_data()
-
+    portfolio_tracker = Portfolio_tracker(initial_cash=150000,currency="SEK", csv_file="transactions.csv")
 
 def beta_ratio(asset_prices, benchmark_prices):
     asset_prices = np.array(asset_prices)
@@ -51,168 +41,10 @@ def sharpe_ratio(prices):
     if len(returns) < 2:
         return np.nan
     return np.mean(returns) / np.std(returns, ddof=1) * np.sqrt(252)
+    
 
-def get_latest_prices_for_holdings(date, tickers):
-    if not tickers:
-        return {}
-
-    rows = (
-        db.session.query(HistoricalPrice)
-        .filter(HistoricalPrice.ticker.in_(tickers))
-        .filter(HistoricalPrice.date <= date)
-        .order_by(HistoricalPrice.ticker, HistoricalPrice.date.desc())
-        .all()
-    )
-
-    out = {}
-    for row in rows:
-        if row.ticker not in out:
-            out[row.ticker] = row.close   
-    return out
-
-import threading
-from flask import jsonify
-
-def run_incremental_update():
-    from sqlalchemy import func
-    print("incremental update started")
-    with app.app_context():
-        last_price_date = db.session.query(func.max(HistoricalPrice.date)).scalar()
-        start_date = (last_price_date + timedelta(days=1)) if last_price_date else DEFAULT_START_DATE
-
-        tickers = [t[0] for t in db.session.query(HistoricalPrice.ticker).distinct().all()]
-
-        for ticker in tickers:
-            try:
-                update_close_prices(ticker, start_date=start_date)
-            except Exception as e:
-                print(f"Failed to update {ticker}: {e}")
-
-        last_holding_date = db.session.query(func.max(Holding.date)).scalar()
-        txs, _ = load_transactions("transactions.csv")
-        from_date = (last_holding_date + timedelta(days=1)) if last_holding_date else DEFAULT_START_DATE
-        to_date = date.today()
-
-        starting_cash = (
-            db.session.query(Cash.balance)
-            .filter(Cash.date == last_holding_date)
-            .scalar()
-            if last_holding_date else STARTING_CASH
-        )
-
-        generate_holdings(
-            transactions=txs,
-            from_date=from_date,
-            to_date=to_date,
-            starting_cash=starting_cash
-        )
-
-        compute_dashboard_data_internal()
-
-    print("Incremental update finished.")
-
-@scheduler.task(
-    "cron",
-    id="daily_incremental_update",
-    hour=23,
-    minute=45,
-    misfire_grace_time=300
-)
-def scheduled_incremental_update():
-    run_incremental_update()
-
-@app.route("/increment")
-def incremental_update():
-    thread = threading.Thread(
-        target=run_incremental_update,
-        daemon=True
-    )
-    thread.start()
-
-    return jsonify({"status": "Incremental update started"}), 202
-
-
-def get_index_prices(tickers, dates):
-    prices = (
-        db.session.query(HistoricalPrice.ticker, HistoricalPrice.date, HistoricalPrice.close)
-        .filter(HistoricalPrice.ticker.in_(tickers))
-        .filter(HistoricalPrice.date.in_(dates))
-        .all()
-    )
-
-    df = pd.DataFrame(prices, columns=['ticker', 'date', 'close'])
-    df['date'] = pd.to_datetime(df['date'])
-    return df
-
-def get_allocation_by_sector(latest_date):
-    holdings = Holding.query.filter_by(date=latest_date).all()
-    if not holdings:
-        return pd.DataFrame(columns=['sector', 'value'])
-
-    data = []
-    for h in holdings:
-        if h.sector:
-            price = get_latest_prices_for_holdings(latest_date, [h.ticker]).get(h.ticker)
-            if price:
-                data.append({'sector': h.sector, 'value': price * h.shares})
-
-    df = pd.DataFrame(data)
-    if not df.empty:
-        df = df.groupby('sector')['value'].sum().reset_index()
-    return df
-
-def get_allocation(latest_date):
-    holdings = Holding.query.filter_by(date=latest_date).all()
-    if not holdings:
-        return pd.DataFrame(columns=['ticker', 'value'])
-
-    tickers = [h.ticker for h in holdings]
-    price_dict = get_latest_prices_for_holdings(latest_date, tickers)
-
-    data = []
-    for h in holdings:
-        price = price_dict.get(h.ticker)
-        if price is not None:
-            data.append({'ticker': h.ticker, 'value': price * h.shares})
-
-    return pd.DataFrame(data)
-
-
-def calculate_portfolio_values_optimized():
-    holdings = pd.read_sql(select(Holding), db.engine)
-    prices = pd.read_sql(select(HistoricalPrice), db.engine)
-    cash = pd.read_sql(select(Cash), db.engine)
-    dividends = pd.read_sql(select(Dividend), db.engine)
-
-    for df in [holdings, prices, cash, dividends]:
-        if not df.empty:
-            df['date'] = pd.to_datetime(df['date'])
-
-    if holdings.empty or prices.empty:
-        return pd.Series(dtype='float64')
-
-    prices = prices.sort_values(['ticker', 'date'])
-    merged = holdings.merge(prices, on='ticker', how='left')
-    merged = merged[merged['date_y'] <= merged['date_x']]
-    merged = merged.sort_values(['ticker', 'date_x', 'date_y'])
-    merged = merged.drop_duplicates(subset=['ticker', 'date_x'], keep='last')
-    merged = merged.rename(columns={'date_x': 'date', 'close': 'price'})
-    merged['value'] = merged['shares'] * merged['price']
-
-    holding_value = merged.groupby('date')['value'].sum().rename("holdings_value")
-    cash_value = cash.groupby('date')['balance'].sum().rename("cash_value")
-
-    if not dividends.empty:
-        dividends = dividends.merge(holdings, on=['date', 'ticker'], how='left')
-        dividends['div_value'] = dividends['amount'] * dividends['shares']
-        dividend_cash = dividends.groupby('date')['div_value'].sum().rename("div_value")
-    else:
-        dividend_cash = pd.Series(dtype='float64')
-
-    df = pd.concat([holding_value, cash_value, dividend_cash], axis=1).fillna(0)
-    df['total_value'] = df.sum(axis=1)
-
-    return df['total_value'].sort_index()
+def calculate_portfolio_value():
+    return portfolio_tracker.get_portfolio_value(datetime.date.today())
 
 
 def percent_change(series, start_date, today_val):
@@ -220,17 +52,6 @@ def percent_change(series, start_date, today_val):
     if s.empty:
         return None
     return ((today_val - s.iloc[-1]) / s.iloc[-1]) * 100
-
-def get_current_holdings_longnames():
-    latest_date = Holding.query.order_by(Holding.date.desc()).first()
-    if not latest_date:
-        return []
-    holdings = Holding.query.filter_by(date=latest_date.date).all()
-    return list({h.longname for h in holdings if h.longname})
-
-def get_past_holdings_longnames(current_holdings):
-    all_holdings = Holding.query.all()
-    return list({h.longname for h in all_holdings if h.longname and h.longname not in current_holdings})
 
 
 def check_auth(username, password):
@@ -303,19 +124,6 @@ def success():
             f.save(save_path)  
             return redirect(url_for('reports'))
 
-
-@app.route("/reset_db")
-def reset_db():
-    auth = request.authorization
-    if not auth or not check_auth(auth.username, auth.password):
-        return authenticate()
-
-    reset_everything()
-    compute_dashboard_data_internal()
-
-    return redirect(url_for('dashboard'))
-
-
 @app.route("/admin", methods=["GET", "POST"])
 def admin_dashboard():
     auth = request.authorization
@@ -348,6 +156,7 @@ def admin_dashboard():
 
     return render_template("admin.html")
 
+
 @app.route("/cache")
 def compute_dashboard_data():
     auth = request.authorization
@@ -356,174 +165,79 @@ def compute_dashboard_data():
     compute_dashboard_data_internal()
     return redirect(url_for("dashboard"))
 
+
 def compute_dashboard_data_internal():
-    """Fastest possible dashboard rebuild. Only O(n) operations."""
+    today_date = datetime.date.today()
 
+    data = portfolio_tracker.get_portfolio_value(datetime.date(2025,2,17),today_date)
+    value = list(data.values())
 
-    # ---------------------------------------
-    # 1) BULK LOAD ALL TABLES IN MEMORY
-    # ---------------------------------------
-    holdings = Holding.query.all()
-    dividends = Dividend.query.all()
-    cash_entries = Cash.query.all()
-    prices = HistoricalPrice.query.all()
+    line_labels = [ts.strftime("%Y-%m-%d") for ts in data]
 
-    if not holdings:
-        return redirect(url_for("dashboard"))
+    cash = portfolio_tracker.get_portfolio_cash(today_date)
 
-    # ---------------------------------------
-    # 2) FAST STRUCTURES
-    # ---------------------------------------
-    holdings_by_date = defaultdict(list)
-    for h in holdings:
-        holdings_by_date[h.date].append(h)
+    week_ago = data[today_date - relativedelta(weeks=1)]
+    month_ago = data[today_date - relativedelta(months=1)]
+    try:
+        year_ago = data[today_date - relativedelta(years=1)]
+    except:
+        year_ago = value[0]
+    pct_changes = {"This Week": (data[today_date] - week_ago) / week_ago * 100,
+                    "This Month": (data[today_date] -  month_ago) / month_ago * 100,
+                    "This Year": (data[today_date] - year_ago) / year_ago * 100,
+                    "All Time": (value[-1] - value[0]) / value[0] * 100
+                   }
 
-    dividends_by_date = defaultdict(list)
-    for d in dividends:
-        dividends_by_date[d.date].append(d)
+    y_max = max(value) * 1.05
+    y_min = min(value) * 0.95
 
-    cash_by_date = {c.date: c.balance for c in cash_entries}
-    
+    omx_data = list((np.array(portfolio_tracker.get_index_returns("^OMX", datetime.date(2025,2,17), today_date)) + 1 )* 150000)
+    gspc_data = list((np.array(portfolio_tracker.get_index_returns("^GSPC", datetime.date(2025,2,17), today_date)) + 1) * 150000)
+    current_holdings = portfolio_tracker.get_current_holdings()
+    past_holdings = portfolio_tracker.get_past_holdings()
 
-    # Price → ticker → sorted list of (date, close)
-    price_lookup = defaultdict(list)
-    for p in prices:
-        price_lookup[p.ticker].append((p.date, p.close))
-
-    for t in price_lookup:
-        price_lookup[t].sort()
-
-    def get_price(ticker, dt):
-        """SQLite-safe binary search for most recent price before date."""
-        lst = price_lookup.get(ticker)
-        if not lst:
-            return None
-        idx = bisect.bisect_right(lst, (dt, 10**12)) - 1
-        if idx >= 0:
-            return lst[idx][1]
-        return None
-
-    all_dates = sorted(holdings_by_date.keys())
-    if not all_dates:
-        return redirect(url_for("dashboard"))
-
-    # ---------------------------------------
-    # 3) BUILD PORTFOLIO TIME SERIES
-    # ---------------------------------------
-    portfolio_values = {}
-
-    for dt in all_dates:
-        total = cash_by_date.get(dt, 0)
-
-        # dividends
-        for div in dividends_by_date.get(dt, []):
-            # get shares at this date
-            shares = 0
-            for h in holdings_by_date[dt]:
-                if h.ticker == div.ticker:
-                    shares = h.shares
-                    break
-            total += div.amount * shares
-
-        # holdings
-        for h in holdings_by_date[dt]:
-            price = get_price(h.ticker, dt)
-            if price:
-                total += h.shares * price
-
-        portfolio_values[dt] = total
-
-    # Convert to pandas for metrics
-    series = pd.Series(portfolio_values)
-    series.index = pd.to_datetime(series.index)
-
-    latest_date = series.index[-1].date()
-    first_date = series.index[0]
-    today_val = series.iloc[-1]
-
-    now = pd.Timestamp.now().normalize()
-
-    def pct_change(start_dt):
-        """Percent change relative to the latest value."""
-        try:
-            past = series.loc[:start_dt].iloc[-1]
-            return (today_val - past) / past * 100
-        except:
-            return None
-
-    pct_changes = {
-        "This Week": pct_change(now - timedelta(days=7)),
-        "This Month": pct_change(now.replace(day=1)),
-        "This Year": pct_change(now.replace(month=1, day=1)),
-        "All Time": pct_change(first_date)
-    }
-
-    df_series = series.reset_index()
-    df_series.columns = ["date", "value"]
-
-    line_labels = df_series["date"].dt.strftime("%Y-%m-%d").tolist()
-    line_data = df_series["value"].tolist()
-
-    y_max = round(max(line_data) * 1.05, -4)
-    y_min = round(min(line_data) * 0.95, -4)
-
-    # holdings lists
-    current_holdings = list({h.longname for h in holdings_by_date[latest_date] if h.longname})
-    all_longnames = {h.longname for h in holdings}
-    past_holdings = list(all_longnames - set(current_holdings))
-
-
-    index_tickers = ['^OMX', '^GSPC']
-    index_prices_df = get_index_prices(index_tickers, series.index)
-    index_pivot = index_prices_df.pivot(index='date', columns='ticker', values='close')
-
-    # OMX
-    omx_temp = index_pivot.get('^OMX', pd.Series()).reindex(series.index).fillna(method='ffill')
-    omx_data = [x * 150_000 / omx_temp.iloc[0] for x in omx_temp]
-
-    # GSPC
-    gspc_temp = index_pivot.get('^GSPC', pd.Series()).reindex(series.index).fillna(method='ffill')
-    gspc_data = [x * 150_000 / gspc_temp.iloc[0] for x in gspc_temp]
-
-
-    # ---------------------------------------
-    # 4) WRITE DASHBOARD CACHE FILE
-    # ---------------------------------------
     cache_file = os.path.join(app.root_path, "static", "dashboard_cache.json")
     with open(cache_file, "w") as f:
         json.dump({
-            "latest_value": round(today_val, 2),
+            "latest_value": round(value[-1], 2),
             "pct_changes": pct_changes,
             "line_labels": line_labels,
-            "line_data": line_data,
+            "line_data": value,
             "omx_data": omx_data,
             "gspc_data": gspc_data,
             "y_max": y_max,
             "y_min": y_min,
-            "cash": round(cash_by_date.get(latest_date, 0)),
+            "cash": round(cash, 0),
             "current": current_holdings,
             "past": past_holdings,
-        }, f)
+            }, f)
 
     print("Dashboard cache updated.")
 
+@app.route("/increment")
+def incremental_update():
+    auth = request.authorization
+    if not auth or not check_auth(auth.username, auth.password):
+        return authenticate()
+    
+    run_incremental_update()
 
-def reset_everything():
-    with app.app_context():
-        db.drop_all()
-        db.create_all()
-        bootstrap_data()
+def run_incremental_update():
+    portfolio_tracker.update_portfolio()
+    compute_dashboard_data_internal()
 
-import os
-
-
-
-
+@scheduler.task(
+    "cron",
+    id="daily_incremental_update",
+    hour=23,
+    minute=45,
+    misfire_grace_time=300
+)
+def scheduled_incremental_update():
+    run_incremental_update()
 
 if __name__ == "__main__":    
     try:
-
-
         port = int(os.environ.get("PORT", 8080))
         app.run(host="0.0.0.0", port=port)
     except (KeyboardInterrupt, SystemExit):
