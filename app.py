@@ -12,7 +12,7 @@ from apscheduler.triggers.cron import CronTrigger
 from collections import defaultdict
 import json
 import bisect
-from portfolio_tracker.portfolio import Portfolio_tracker
+from FinTrack import FinTrack
 from dateutil.relativedelta import relativedelta
 import threading
 from flask import jsonify
@@ -26,7 +26,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.secret_key = os.environ.get("SECRET_KEY", "fallback-dev-key")
 
 with app.app_context():
-    portfolio_tracker = Portfolio_tracker(initial_cash=150000,currency="SEK", csv_file="transactions.csv")
+    portfolio_tracker = FinTrack(initial_cash=150000,currency="SEK", csv_file="transactions.csv")
 
 def beta_ratio(asset_prices, benchmark_prices):
     asset_prices = np.array(asset_prices)
