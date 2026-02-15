@@ -12,7 +12,7 @@ from apscheduler.triggers.cron import CronTrigger
 from collections import defaultdict
 import json
 import bisect
-from FinTrack import FinTrack
+from FinTrack import FinTrack, Config
 from dateutil.relativedelta import relativedelta
 import threading
 from flask import jsonify
@@ -196,6 +196,14 @@ def compute_dashboard_data_internal():
     current_holdings = portfolio_tracker.get_current_holdings()
     past_holdings = portfolio_tracker.get_past_holdings()
 
+    diff_omx = len(value) - len(omx_data)
+    diff_gspc = len(value) - len(gspc_data)
+
+    for _ in range(diff_omx):
+        omx_data.append(omx_data[-1])
+    for _ in range(diff_gspc):
+        gspc_data.append(gspc_data[-1]) 
+
     cache_file = os.path.join(app.root_path, "static", "dashboard_cache.json")
     with open(cache_file, "w") as f:
         json.dump({
@@ -213,6 +221,22 @@ def compute_dashboard_data_internal():
             }, f)
 
     print("Dashboard cache updated.")
+
+@app.route("/reset_db")
+def reset_database(user_id=None):
+    auth = request.authorization
+    if not auth or not check_auth(auth.username, auth.password):
+        return authenticate()
+    db_path = Config.get_db_path(user_id)
+    
+    print(f"Database location: {db_path}")
+    
+    if os.path.exists(db_path):
+        confirm = input(f"Delete database at {db_path}? (yes/no): ")
+        os.remove(db_path)
+        print("Next time you initialize a portfolio, a fresh database will be created.")
+    else:
+        print("Database file not found. Nothing to delete.")
 
 @app.route("/increment")
 def incremental_update():
@@ -238,6 +262,7 @@ def scheduled_incremental_update():
 
 if __name__ == "__main__":    
     try:
+        
         port = int(os.environ.get("PORT", 8080))
         app.run(host="0.0.0.0", port=port)
     except (KeyboardInterrupt, SystemExit):
