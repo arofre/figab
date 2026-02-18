@@ -16,7 +16,8 @@ from FinTrack import FinTrack, Config
 from dateutil.relativedelta import relativedelta
 import threading
 from flask import jsonify
-
+import sqlite3
+import gc
 app = Flask(__name__)
 scheduler = APScheduler()
 scheduler.init_app(app)
@@ -202,7 +203,7 @@ def compute_dashboard_data_internal():
     for _ in range(diff_omx):
         omx_data.append(omx_data[-1])
     for _ in range(diff_gspc):
-        gspc_data.append(gspc_data[-1]) 
+        gspc_data.append(gspc_data[-1])
 
     cache_file = os.path.join(app.root_path, "static", "dashboard_cache.json")
     with open(cache_file, "w") as f:
@@ -222,21 +223,43 @@ def compute_dashboard_data_internal():
 
     print("Dashboard cache updated.")
 
+
 @app.route("/reset_db")
 def reset_database(user_id=None):
     auth = request.authorization
     if not auth or not check_auth(auth.username, auth.password):
         return authenticate()
     db_path = Config.get_db_path(user_id)
-    
+
     print(f"Database location: {db_path}")
-    
+
     if os.path.exists(db_path):
-        confirm = input(f"Delete database at {db_path}? (yes/no): ")
-        os.remove(db_path)
-        print("Next time you initialize a portfolio, a fresh database will be created.")
+
+        try:
+            conn = sqlite3.connect(db_path)
+            conn.close()
+        except Exception:
+            pass
+        gc.collect()
+
+        try:
+            os.remove(db_path)
+            print("Next time you initialize a portfolio, a fresh database will be created.")
+        except PermissionError as e:
+            print(f"Could not delete database: {e}")
+            return "Database is still in use. Try again in a moment.", 500
     else:
         print("Database file not found. Nothing to delete.")
+
+    return "Database reset successfully.", 200
+
+@app.route("/returns")
+def returns():
+    return portfolio_tracker.print_stock_returns(
+                from_date=datetime.date(2026, 1, 23),
+                to_date=datetime.date.today()
+                ).replace('\n', '<br>')
+
 
 @app.route("/increment")
 def incremental_update():

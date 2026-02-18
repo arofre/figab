@@ -8,4 +8,4 @@ numpy>=1.25
 gunicorn>=23.0.0
 discord.py>=2.5.2
 Flask-APScheduler>=1.13.1
-FinTrack>=1.1.1
+FinTrack>=1.2.0
