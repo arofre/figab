@@ -402,6 +402,7 @@ main {
   position: relative;
 }
 
+
 /* ═══════════════════
    INFO ROW (3-col)
    ═══════════════════ */
@@ -702,7 +703,7 @@ footer {
     padding: 14px 14px;
   }
 
-  .chart-container { height: 260px; padding: 14px; }
+  .chart-container { height: 200px; padding: 6px; }
 
   .button-container button { padding: 8px 10px; font-size: 0.58rem; }
 
