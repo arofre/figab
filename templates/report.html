@@ -3,71 +3,114 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FIGAB CAPITAL PARTNERS</title>
+<title>FIGAB Capital Partners — Reports</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/report.css') }}">
 <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
 </head>
 <body>
+
+<div class="accent-bar"></div>
+
 <header>
-    <div class="top-bar">
-        <h1>FIGAB CAPITAL PARTNERS</h1>
-        <nav id="menu">
-            <ul>
-                <li><a href="/">Home</a></li>
-                <li><a href="/reports">Reports</a></li>
-            </ul>
-        </nav>
+  <div class="header-inner">
+    <div class="logo-block">
+      <span class="logo-monogram">FCP</span>
+      <div class="logo-divider"></div>
+      <div class="logo-full">FIGAB Capital<br>Partners</div>
     </div>
+    <nav id="menu">
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/reports">Reports</a></li>
+      </ul>
+    </nav>
+  </div>
 </header>
 
-<main>
-    <h2 class="report-page-title">Reports</h2>
-
-    {% set folder_order = report_folders + (['Other'] if 'Other' in reports_data else []) %}
-
-    {% for folder in folder_order %}
+<!-- Page title bar -->
+<div class="page-title-bar">
+  <div class="page-title-inner">
+    <div class="page-title-cell">
+      <span class="page-eyebrow">Archive</span>
+      <h1>Reports</h1>
+    </div>
+    <span class="page-count">
+      {% set total = namespace(n=0) %}
+      {% for folder in report_folders + (['Other'] if 'Other' in reports_data else []) %}
         {% if folder in reports_data %}
-        <section class="report-folder">
-            <div class="folder-header" onclick="toggleFolder(this)">
-                <h3>{{ folder }}</h3>
-                <span class="folder-arrow">▶</span>
-            </div>
-            <div class="folder-content">
-                {% if reports_data[folder] %}
-                <ul class="report-list">
-                    {% for filename in reports_data[folder] %}
-                    <li>
-                        <a href="/reports/{{ folder | urlencode }}/{{ filename }}" target="_blank">
-                            {{ filename }}
-                        </a>
-                    </li>
-                    {% endfor %}
-                </ul>
-                {% else %}
-                <p class="empty-folder">No reports yet.</p>
-                {% endif %}
-            </div>
-        </section>
+          {% set total.n = total.n + reports_data[folder] | length %}
         {% endif %}
-    {% endfor %}
+      {% endfor %}
+      {{ total.n }} document{{ 's' if total.n != 1 else '' }}
+    </span>
+  </div>
+</div>
+
+<main>
+
+  {% set folder_order = report_folders + (['Other'] if 'Other' in reports_data else []) %}
+  {% set ns = namespace(folder_idx=0) %}
+
+  {% for folder in folder_order %}
+    {% if folder in reports_data %}
+    {% set ns.folder_idx = ns.folder_idx + 1 %}
+    <section class="report-folder">
+
+      <div class="folder-header" onclick="toggleFolder(this)" id="folder-{{ loop.index }}">
+        <span class="folder-num">{{ '%02d' % ns.folder_idx }}</span>
+        <div class="folder-title-area">
+          <h3>{{ folder }}</h3>
+          {% if reports_data[folder] %}
+          <span class="folder-doc-count">{{ reports_data[folder] | length }} doc{{ 's' if reports_data[folder] | length != 1 else '' }}</span>
+          {% endif %}
+        </div>
+        <div class="folder-arrow-cell">
+          <span class="folder-arrow">▶</span>
+        </div>
+      </div>
+
+      <div class="folder-content {% if loop.index == 1 %}open{% endif %}">
+        {% if reports_data[folder] %}
+        <ul class="report-list">
+          {% for filename in reports_data[folder] %}
+          <li>
+            <a href="/reports/{{ folder | urlencode }}/{{ filename }}" target="_blank">
+              <span class="report-index">{{ '%02d' % loop.index }}</span>
+              <span class="report-name">{{ filename | replace('_', ' ') | replace('-', ' – ') }}</span>
+              <span class="report-ext {{ filename.split('.')[-1].lower() }}">{{ filename.split('.')[-1].upper() }}</span>
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="empty-folder">No documents in this folder yet</p>
+        {% endif %}
+      </div>
+
+    </section>
+    {% endif %}
+  {% endfor %}
+
 </main>
+
+<footer>
+  <div class="footer-inner">
+    <span class="footer-brand">FIGAB Capital Partners</span>
+    <span class="footer-meta">Private Investment Partnership &nbsp;·&nbsp; Est. 2025</span>
+  </div>
+</footer>
 
 <script>
 function toggleFolder(header) {
-    header.classList.toggle('active');
-    const content = header.nextElementSibling;
-    if (content.style.maxHeight) {
-        content.style.maxHeight = null;
-        content.classList.remove('open');
-    } else {
-        content.style.maxHeight = content.scrollHeight + 20 + 'px';
-        content.classList.add('open');
-    }
+  header.classList.toggle('active');
+  const content = header.nextElementSibling;
+  content.classList.toggle('open');
 }
 
+/* Open first folder by default */
 document.addEventListener('DOMContentLoaded', () => {
-    const firstHeader = document.querySelector('.folder-header');
-    if (firstHeader) toggleFolder(firstHeader);
+  const first = document.querySelector('.folder-header');
+  if (first) first.classList.add('active');
 });
 </script>
 

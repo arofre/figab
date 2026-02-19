@@ -1,278 +1,355 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FIGAB CAPITAL PARTNERS</title>
+<title>FIGAB Capital Partners</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/portfolio.css') }}">
+<link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/dist/date-fns.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-<link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
 </head>
 <body>
+
+<!-- Accent line at very top -->
+<div class="accent-bar"></div>
+
 <header>
-    <div class="top-bar">
-        <h1>FIGAB CAPITAL PARTNERS</h1>
-        <nav id="menu">
-            <ul>
-                <li><a href="/">Home</a></li>
-                <li><a href="/reports">Reports</a></li>
-            </ul>
-        </nav>
+  <div class="header-inner">
+    <div class="logo-block">
+      <span class="logo-monogram">FCP</span>
+      <div class="logo-divider"></div>
+      <div class="logo-full">FIGAB Capital<br>Partners</div>
     </div>
+    <nav id="menu">
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/reports">Reports</a></li>
+      </ul>
+    </nav>
+
+  </div>
 </header>
 
 <main>
-    <!-- Summary Cards -->
-    <section class="summary">
-        <div class="summary-item">
-            <h2>Totalt värde</h2>
-            <p>{{ latest_value }} SEK</p>
-        </div>
-        <div class="summary-item">
-            <h2>Likviditet</h2>
-            <p>{{ cash }} SEK</p>
-        </div>
-    </section>
 
-    <!-- Percent Changes -->
-    <section class="percent-changes">
-        <h2>Procentuell förändring</h2>
-        <ul>
-            {% for key, value in pct_changes.items() %}
-            <li>{{ key }}: {{ "%.2f"|format(value) if value is not none else "N/A" }}%</li>
-            {% endfor %}
-        </ul>
-    </section>
+  <!-- ── Metrics Bar ── -->
+  <div class="metrics-bar">
+    <div class="metric-cell">
+      <div class="m-key">Portfolio Value</div>
+      <div class="m-val">{{ "{:,.0f}".format(latest_value) }}<span class="currency">SEK</span></div>
+      <div class="m-sub">Total market value</div>
+    </div>
+    <div class="metric-cell">
+      <div class="m-key">Cash Position</div>
+      <div class="m-val">{{ "{:,.0f}".format(cash) }}<span class="currency">SEK</span></div>
+      <div class="m-sub">Available liquidity</div>
+    </div>
+    <div class="metric-cell">
+      <div class="m-key">Active Holdings</div>
+      <div class="m-val">{{ current | length }}</div>
+      <div class="m-sub">Max 8 per bylaws</div>
+    </div>
+    <div class="metric-cell">
+      <div class="m-key">Fund Inception</div>
+      <div class="m-val" style="font-size:1.35rem; letter-spacing:0;">17 Feb 2025</div>
+      <div class="m-sub">Operational</div>
+    </div>
+  </div>
 
-    <!-- Charts -->
-    <section class="charts">
-        <div class="chart-container full-width">
-            <div class="chart-header">
-                <h3>Portföljens utveckling</h3>
-                <div class="button-container">
-                    <button onclick="setTimeRange('1m')">1 m.</button>
-                    <button onclick="setTimeRange('3m')">3 m.</button>
-                    <button onclick="setTimeRange('1y')">1 yr.</button>
-                    <button onclick="setTimeRange('ytd')">YTD</button>
-                    <button onclick="setTimeRange('all')">All</button>
-                </div>
-            </div>
-            <canvas id="valueChart"></canvas>
-        </div>
-    </section>
+  <!-- ── PCT Strip ── -->
+  <div class="pct-strip">
+    {% for key, value in pct_changes.items() %}
+    <div class="pct-cell">
+      <span class="p-label">{{ key }}</span>
+      <span class="p-val {% if value is not none and value >= 0 %}positive{% else %}negative{% endif %}">
+        {% if value is not none %}
+          {{ "%+.2f"|format(value) }}%
+        {% else %}
+          N/A
+        {% endif %}
+      </span>
+    </div>
+    {% endfor %}
+  </div>
 
+  <!-- ── Chart ── -->
+  <div class="chart-section">
+    <div class="chart-top-bar">
+      <div class="chart-label">
+        <h3>Portfolio Development</h3>
+        <span>vs. ^OMX &amp; ^GSPC · indexed to inception</span>
+      </div>
+      <div class="button-container">
+        <button onclick="setTimeRange('1m', this)">1M</button>
+        <button onclick="setTimeRange('3m', this)">3M</button>
+        <button onclick="setTimeRange('1y', this)">1Y</button>
+        <button onclick="setTimeRange('ytd', this)">YTD</button>
+        <button onclick="setTimeRange('all', this)" class="active">All</button>
+      </div>
+    </div>
+    <div class="chart-container">
+      <canvas id="valueChart"></canvas>
+    </div>
+    <div class="chart-legend">
+      <div class="legend-item">
+        <div class="legend-line" style="background: var(--accent);"></div>
+        Portfolio
+      </div>
+      <div class="legend-item">
+        <div class="legend-line" style="background: var(--text-faint); border-top: 1px dashed var(--text-faint); height:0; margin-top:1px;"></div>
+        ^OMX
+      </div>
+      <div class="legend-item">
+        <div class="legend-line" style="background: transparent; border-top: 1px dashed var(--text-faint); height:0; margin-top:1px; opacity:0.5;"></div>
+        ^GSPC
+      </div>
+    </div>
+  </div>
 
-<section class="info-sections">
+  <!-- ── Three-Column Info ── -->
+  <div class="info-sections">
 
+    <!-- Current Holdings -->
     <div class="info-column">
-        <div class="collapsible-section">
-            <div class="collapsible-header">
-                <h3>Nuvarande innehav</h3><span class="arrow">▶</span>
-            </div>
-            <div class="collapsible-content">
-                <ul>{% for item in current %}<li>{{ item }}</li>{% endfor %}</ul>
-            </div>
-        </div>
-
-        <div class="collapsible-section">
-            <div class="collapsible-header">
-                <h3>Tidigare innehav</h3><span class="arrow">▶</span>
-            </div>
-            <div class="collapsible-content">
-                <ul>{% for item in past %}<li>{{ item }}</li>{% endfor %}</ul>
-            </div>
-        </div>
+      <div class="col-header">
+        <span class="col-number">01</span>
+        <h3>Current Holdings</h3>
+      </div>
+      {% for item in current %}
+      <div class="holding-item">
+        <span class="h-name">{{ item }}</span>
+        <span class="h-dot"></span>
+      </div>
+      {% endfor %}
     </div>
 
-    <!-- Right column: Stadgar -->
-    <div class="info-column">
-        <div class="collapsible-section">
-            <div class="collapsible-header">
-                <h3>Stadgar</h3><span class="arrow">▶</span>
-            </div>
-            <div class="collapsible-content">
-                <ol>
-            <li>Tredje tisdagen varje kalendermånad ska alla investeringar ifrågasättas. Majoritet krävs för beslut om köp/försäljning.</li>
-            <li>Portföljen ska innehålla högst 8 olika aktieinvesteringar.</li>
-            <li>Diversifiering mellan sektorer ska premieras; koncentration i en sektor ska undvikas.</li>
-            <li>Cash, räntepapper eller guld prioriteras framför värdepapper utan övertygelse.</li>
-            <li>Stämma öppnas med en allmän skål med whisky.</li>
-            <li>Endast Ordförande kan utse övriga medlemmar till roller inom FIGAB CAPITAL PARTNERS.</li>
-                </ol>
-            </div>
-        </div>
+    <!-- Past Holdings -->
+    <div class="info-column" id="prior-column">
+      <div class="col-header">
+        <span class="col-number">02</span>
+        <h3>Prior Positions</h3>
+      </div>
+      {% for item in past[:7] %}
+      <div class="past-item">{{ item }}</div>
+      {% endfor %}
+
+      <div class="past-overflow" id="past-overflow">
+        {% for item in past[7:] %}
+        <div class="past-item">{{ item }}</div>
+        {% endfor %}
+      </div>
+
+      <button class="past-toggle" id="past-toggle" onclick="togglePast()">
+        <span id="past-toggle-label">Show all</span>
+        <span class="past-chevron" id="past-chevron">▾</span>
+      </button>
     </div>
 
-</section>
+    <!-- Bylaws -->
+<div class="info-column bylaws-card">
+  <div class="col-header">
+    <span class="col-number">03</span>
+    <h3>Articles of Association</h3>
+  </div>
+
+  <div class="bylaws-content">
+    <p class="bylaws-description">
+      The full Articles of Association are available as a formal document.
+      Please refer to the official PDF for complete terms and governance provisions.
+    </p>
+
+    <a class="bylaws-button" href="/reports/Other/Bylaws.pdf" target="_blank" rel="noopener">
+      View Official Document
+      <span class="arrow">→</span>
+    </a>
+  </div>
+</div>
+
+
+  </div><!-- /info-sections -->
 
 </main>
 
-<script src="{{ url_for('static', filename='js/script.js') }}"></script>
+<footer>
+  <div class="footer-inner">
+    <span class="footer-brand">FIGAB Capital Partners</span>
+    <span class="footer-meta">Private Investment Partnership &nbsp;·&nbsp; Est. 2025</span>
+  </div>
+</footer>
+
 <script>
+/* ── Chart setup ── */
+const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-document.querySelectorAll('.collapsible-header').forEach(header => {
-    header.addEventListener('click', () => {
-        header.classList.toggle('active');
-        const content = header.nextElementSibling;
-        if (content.style.maxHeight) {
-            content.style.maxHeight = null;
-            content.classList.remove('open');
-        } else {
-            content.style.maxHeight = content.scrollHeight + 20 + "px";
-            content.classList.add('open');
-        }
-    });
-});
+/* Read CSS variables for chart theming */
+const style = getComputedStyle(document.documentElement);
+const accentColor  = isDark ? '#4a7fe8' : '#2d6be4';
+const dimColor     = isDark ? '#3d4e65' : '#9baab8';
+const textColor    = isDark ? '#7e8fa8' : '#4b5769';
+const gridColor    = isDark ? 'rgba(36,48,72,0.8)' : 'rgba(221,226,234,0.8)';
+const tooltipBg    = isDark ? '#1a2336' : '#ffffff';
+const tooltipBorder= isDark ? '#243048' : '#dde2ea';
+const tooltipTitle = isDark ? '#4a7fe8' : '#2d6be4';
+const tooltipBody  = isDark ? '#7e8fa8' : '#4b5769';
 
-const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+const fullLabels = {{ line_labels | tojson }};
+const fullData   = {{ line_data | tojson }};
+const omxFull    = {{ omx_data | tojson }};
+const gspcFull   = {{ gspc_data | tojson }};
 
-const valueChartColors = {
-    border: isDark ? '#3a86ff' : '#3a86ff',
-    background: isDark ? 'rgba(58,134,255,0.2)' : 'rgba(58,134,255,0.2)',
-    omxBorder: isDark ? '#ff006e' : '#ff006e',
-    gspcBorder: isDark ? '#fb5607' : '#fb5607'
-};
+const ctx = document.getElementById('valueChart').getContext('2d');
 
-const ctxValue = document.getElementById('valueChart').getContext('2d');
-const valueChart = new Chart(ctxValue, {
-    type: 'line',
-    data: {
-        labels: {{ line_labels | tojson }},
-        interaction: {
-            mode: 'index',
-            intersect: false,
-            axis: 'x' 
-        },
-        datasets: [
-            {
-                label: 'Portfolio Value',
-                data: {{ line_data | tojson }},
-                borderColor: 'rgba(75, 192, 192, 1)',
-                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                fill: true,
-                pointRadius: 2,
-                pointHoverRadius: 4,
-                tension: 0.2
-            },
-            {
-                label: '^OMX',
-                data: {{ omx_data | tojson }},
-                borderColor: valueChartColors.omxBorder,
-                backgroundColor: 'transparent',
-                fill: false,
-                pointRadius: 0,
-                borderDash: [5,5],
-                tension:0.1
-            },
-            {
-                label: '^GSPC',
-                data: {{ gspc_data | tojson }},
-                borderColor: valueChartColors.gspcBorder,
-                backgroundColor: 'transparent',
-                fill: false,
-                pointRadius: 0,
-                borderDash: [5,5],
-                tension:0.1
-            }
-        ]
-    },
-    options: {
-        responsive:true,
-        maintainAspectRatio:false,
-        plugins: {
-            tooltip: {
-                enabled: true,
-                mode: 'index',
-                intersect: false,
-                position: 'nearest', // follows cursor/finger
-                callbacks: {
-                    label: function(context) {
-                        let label = context.dataset.label || '';
-                        let value = context.parsed.y;
-                        return `${label}: ${value.toLocaleString('sv-SE')} SEK`; // format nicely
-                    }
-                }
-            },
-            legend: {
-                display: true,
-                labels: { color: isDark ? '#e2e7e5' : '#1f2937' }
-            }
-        },
-        scales: {
-            x: { 
-                
-                ticks: { color: isDark ? '#e2e7e5' : '#1f2937',
-                autoSkip: true,       // Automatically skip labels that don’t fit
-                maxRotation: 30,       // No rotation
-                minRotation: 30
-                },
-                title: { color: isDark ? '#e2e7e5' : '#1f2937' }
-            },
-            y: { 
-                ticks: { color: isDark ? '#e2e7e5' : '#1f2937' },
-                title: { color: isDark ? '#e2e7e5' : '#1f2937' }
-            }
-        }
-    }
-});
-
-
-
-function setTimeRange(range) {
-    const fullLabels = {{ line_labels | tojson }};
-    const fullData = {{ line_data | tojson }};
-    const omxFull = {{ omx_data | tojson }};
-    const gspcFull = {{ gspc_data | tojson }};
-
-    const now = new Date();
-    let fromDate;
-    if(range==='1m'){ fromDate = new Date(now.setMonth(now.getMonth()-1)); }
-    else if(range==='3m'){ fromDate = new Date(now.setMonth(now.getMonth()-3)); }
-    else if(range==='1y'){ fromDate = new Date(now.setFullYear(now.getFullYear()-1)); }
-    else if(range==='ytd'){ fromDate = new Date(now.getFullYear(),0,1); }
-    else{ fromDate = new Date('1970-01-01'); }
-
-    let fLabels=[], fPortfolio=[], fOMX=[], fGSPC=[];
-    for(let i=0;i<fullLabels.length;i++){
-        const d = new Date(fullLabels[i]);
-        if(d>=fromDate){
-            fLabels.push(fullLabels[i]);
-            fPortfolio.push(fullData[i]);
-            fOMX.push(omxFull[i]);
-            fGSPC.push(gspcFull[i]);
-        }
-    }
-    if(fPortfolio.length===0) return;
-
-    const base=fPortfolio[0], omxBase=fOMX[0], gspcBase=fGSPC[0];
-    const rebasedOMX=fOMX.map(v=>v*(base/omxBase));
-    const rebasedGSPC=fGSPC.map(v=>v*(base/gspcBase));
-
-    const combined=[...fPortfolio,...rebasedOMX,...rebasedGSPC];
-    const minY=Math.floor(Math.min(...combined)/10000)*10000;
-    const maxY=Math.ceil(Math.max(...combined)/10000)*10000;
-    const padding=(maxY-minY)*0.05;
-
-    valueChart.options.scales.y.min = Math.floor(minY-padding);
-    valueChart.options.scales.y.max = Math.ceil(maxY+padding);
-    valueChart.data.labels=fLabels;
-    valueChart.data.datasets[0].data=fPortfolio;
-    valueChart.data.datasets[1].data=rebasedOMX;
-    valueChart.data.datasets[2].data=rebasedGSPC;
-    valueChart.update();
+/* Gradient fill for portfolio line */
+function makeGradient() {
+  const h = ctx.canvas.clientHeight || 280;
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  if (isDark) {
+    grad.addColorStop(0, 'rgba(74,127,232,0.18)');
+    grad.addColorStop(1, 'rgba(74,127,232,0.0)');
+  } else {
+    grad.addColorStop(0, 'rgba(45,107,228,0.12)');
+    grad.addColorStop(1, 'rgba(45,107,228,0.0)');
+  }
+  return grad;
 }
 
-document.querySelectorAll('.button-container button').forEach(btn=>{
-    btn.addEventListener('click',function(){
-        document.querySelectorAll('.button-container button').forEach(b=>b.classList.remove('active'));
-        this.classList.add('active');
-    });
+const valueChart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: fullLabels,
+    datasets: [
+      {
+        label: 'Portfolio',
+        data: fullData,
+        borderColor: accentColor,
+        backgroundColor: makeGradient(),
+        fill: true,
+        borderWidth: 1.8,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHoverBackgroundColor: accentColor,
+        tension: 0.25
+      },
+      {
+        label: '^OMX',
+        data: omxFull,
+        borderColor: dimColor,
+        borderDash: [4, 5],
+        fill: false,
+        pointRadius: 0,
+        borderWidth: 1.2,
+        tension: 0.25
+      },
+      {
+        label: '^GSPC',
+        data: gspcFull,
+        borderColor: dimColor,
+        borderDash: [2, 6],
+        fill: false,
+        pointRadius: 0,
+        borderWidth: 1,
+        tension: 0.25,
+        borderColorOpacity: 0.5
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: tooltipBg,
+        borderColor: tooltipBorder,
+        borderWidth: 1,
+        titleColor: tooltipTitle,
+        bodyColor: tooltipBody,
+        titleFont: { family: 'DM Mono, monospace', size: 11, weight: '400' },
+        bodyFont: { family: 'DM Mono, monospace', size: 11 },
+        padding: 12,
+        callbacks: {
+          label: ctx => ` ${ctx.dataset.label}  ${Math.round(ctx.parsed.y).toLocaleString('sv-SE')} SEK`
+        }
+      }
+    },
+    scales: {
+      x: {
+        grid: { color: gridColor, borderColor: 'transparent' },
+        ticks: {
+          color: textColor,
+          font: { family: 'DM Mono, monospace', size: 10 },
+          maxRotation: 30,
+          autoSkip: true,
+          maxTicksLimit: 10
+        }
+      },
+      y: {
+        position: 'right',
+        grid: { color: gridColor, borderColor: 'transparent' },
+        ticks: {
+          color: textColor,
+          font: { family: 'DM Mono, monospace', size: 10 },
+          callback: v => Math.round(v).toLocaleString('sv-SE')
+        }
+      }
+    }
+  }
 });
 
+/* ── Time range filter ── */
+function togglePast() {
+  const overflow = document.getElementById('past-overflow');
+  const chevron  = document.getElementById('past-chevron');
+  const label    = document.getElementById('past-toggle-label');
+  const isOpen   = overflow.classList.toggle('open');
+  chevron.classList.toggle('rotated', isOpen);
+  label.textContent = isOpen ? 'Show less' : 'Show all';
+}
 
+function setTimeRange(range, btn) {
+  /* Active button state */
+  document.querySelectorAll('.button-container button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
 
+  const now = new Date();
+  let fromDate;
+  if (range === '1m')       fromDate = new Date(now.getFullYear(), now.getMonth()-1, now.getDate());
+  else if (range === '3m')  fromDate = new Date(now.getFullYear(), now.getMonth()-3, now.getDate());
+  else if (range === '1y')  fromDate = new Date(now.getFullYear()-1, now.getMonth(), now.getDate());
+  else if (range === 'ytd') fromDate = new Date(now.getFullYear(), 0, 1);
+  else                      fromDate = new Date('1970-01-01');
+
+  const fl=[], fp=[], fo=[], fg=[];
+  fullLabels.forEach((l, i) => {
+    if (new Date(l) >= fromDate) {
+      fl.push(l); fp.push(fullData[i]); fo.push(omxFull[i]); fg.push(gspcFull[i]);
+    }
+  });
+
+  if (fp.length === 0) return;
+
+  /* Rebase comparisons to portfolio start value in this range */
+  const base = fp[0], omxBase = fo[0], gspcBase = fg[0];
+  const rebasedOMX  = fo.map(v => v * (base / omxBase));
+  const rebasedGSPC = fg.map(v => v * (base / gspcBase));
+
+  const combined = [...fp, ...rebasedOMX, ...rebasedGSPC];
+  const minY = Math.min(...combined);
+  const maxY = Math.max(...combined);
+  const pad  = (maxY - minY) * 0.06;
+
+  valueChart.options.scales.y.min = Math.floor((minY - pad) / 1000) * 1000;
+  valueChart.options.scales.y.max = Math.ceil((maxY + pad) / 1000) * 1000;
+  valueChart.data.labels = fl;
+  valueChart.data.datasets[0].data = fp;
+  valueChart.data.datasets[1].data = rebasedOMX;
+  valueChart.data.datasets[2].data = rebasedGSPC;
+  valueChart.update();
+}
 </script>
 </body>
 </html>
