@@ -10,15 +10,14 @@ header { background: #ffffff; padding: 15px 30px; box-shadow: 0 2px 8px rgba(0,0
 #menu a { text-decoration: none; color: #1f2937; font-weight: 500; transition: color 0.2s; }
 #menu a:hover { color: #3a86ff; }
 
-/* --- Report Page Title --- */
+/* --- Page Title --- */
 .report-page-title {
     text-align: center;
     font-size: 2rem;
     font-weight: 600;
     color: #3a86ff;
-    margin-bottom: 25px;
+    margin: 25px 0;
     position: relative;
-    margin-top: 25px;
 }
 .report-page-title::after {
     content: "";
@@ -30,43 +29,95 @@ header { background: #ffffff; padding: 15px 30px; box-shadow: 0 2px 8px rgba(0,0
     border-radius: 2px;
 }
 
-/* --- PDF Report List --- */
+/* --- Main Layout --- */
+main {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 20px 60px;
+}
+
+/* --- Folder Sections --- */
+.report-folder {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    margin-bottom: 18px;
+    overflow: hidden;
+}
+
+.folder-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 22px;
+    cursor: pointer;
+    background: #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
+    transition: background 0.2s;
+    user-select: none;
+}
+.folder-header:hover { background: #e2e8f0; }
+.folder-header h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #3a86ff;
+    margin: 0;
+}
+
+.folder-arrow {
+    font-weight: bold;
+    color: #3a86ff;
+    transition: transform 0.3s ease;
+}
+.folder-header.active .folder-arrow { transform: rotate(90deg); }
+
+/* --- Folder Content --- */
+.folder-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.35s ease, padding 0.3s ease;
+    padding: 0 22px;
+    background: #ffffff;
+}
+.folder-content.open { padding: 14px 22px 18px; }
+
+/* --- Report List --- */
 .report-list {
-    max-width: 800px;
-    margin: 0 auto 40px auto;
-    padding: 0;
     list-style: none;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 10px;
 }
 .report-list li {
-    background: #ffffff;
-    padding: 15px 20px;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+    background: #f8fafc;
+    padding: 11px 16px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
 }
 .report-list li:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
-    background: #f1f5f9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    background: #eef4ff;
 }
 .report-list a {
     text-decoration: none;
     color: #1f2937;
     font-weight: 500;
-    font-size: 1rem;
+    font-size: 0.95rem;
     display: block;
 }
-.report-list a:hover {
-    color: #3a86ff;
+.report-list a:hover { color: #3a86ff; }
+
+.empty-folder {
+    color: #94a3b8;
+    font-style: italic;
+    font-size: 0.9rem;
 }
 
 /* --- Dark Mode --- */
 @media (prefers-color-scheme: dark) {
     body { background: #121821; color: #e2e7e5; }
-
     header { background: #1e293b; box-shadow: 0 2px 8px rgba(0,0,0,0.5); }
     #menu a { color: #e2e7e5; }
     #menu a:hover { color: #3a86ff; }
@@ -74,14 +125,30 @@ header { background: #ffffff; padding: 15px 30px; box-shadow: 0 2px 8px rgba(0,0
     .report-page-title { color: #3a86ff; }
     .report-page-title::after { background: #3a86ff; }
 
-    .report-list li {
+    .report-folder {
         background: #1e293b;
         box-shadow: 0 4px 12px rgba(0,0,0,0.5);
     }
-    .report-list li:hover {
+    .folder-header {
         background: #152136;
-        box-shadow: 0 6px 18px rgba(0,0,0,0.7);
+        border-bottom: 1px solid #334155;
+    }
+    .folder-header:hover { background: #1d2c46; }
+    .folder-header h3 { color: #3a86ff; }
+    .folder-arrow { color: #3a86ff; }
+
+    .folder-content { background: #1e293b; }
+
+    .report-list li {
+        background: #172033;
+        border-color: #334155;
+    }
+    .report-list li:hover {
+        background: #1c2d4a;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.4);
     }
     .report-list a { color: #e2e7e5; }
     .report-list a:hover { color: #3a86ff; }
+
+    .empty-folder { color: #64748b; }
 }

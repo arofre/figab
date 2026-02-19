@@ -1,5 +1,6 @@
 import datetime
 import os
+import re
 import json
 import threading
 import numpy as np
@@ -25,6 +26,8 @@ scheduler.start()
 UPLOAD_FOLDER = os.path.join(app.root_path, 'static/reports')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.secret_key = os.environ.get("SECRET_KEY", "fallback-dev-key")
+
+REPORT_FOLDERS = ["Monthly reports", "Board meetings", "General meeting"]
 
 with app.app_context():
     portfolio_tracker = FinTrack(initial_cash=150000,currency="SEK", csv_file="transactions.csv")
@@ -66,6 +69,77 @@ def authenticate():
         {'WWW-Authenticate': 'Basic realm="Login Required"'}
     )
 
+
+def sort_key_for_report(filename):
+    """
+    Extract a (year, month) sort key from a filename so reports are ordered
+    descending. Falls back to (0, 0) for unrecognised filenames.
+    """
+    name = os.path.splitext(filename)[0].lower()
+
+    MONTHS = {
+        'january': 1, 'jan': 1,
+        'february': 2, 'feb': 2,
+        'march': 3, 'mar': 3,
+        'april': 4, 'apr': 4,
+        'may': 5,
+        'june': 6, 'jun': 6,
+        'july': 7, 'jul': 7,
+        'august': 8, 'aug': 8,
+        'september': 9, 'sep': 9, 'sept': 9,
+        'october': 10, 'oct': 10,
+        'november': 11, 'nov': 11,
+        'december': 12, 'dec': 12,
+    }
+
+    m = re.search(r'(\d{4})[-_./ ](\d{1,2})', name)
+    if m:
+        return (int(m.group(1)), int(m.group(2)))
+
+    for word in sorted(MONTHS, key=len, reverse=True):
+        if word in name:
+            year_m = re.search(r'\d{4}', name)
+            if year_m:
+                return (int(year_m.group()), MONTHS[word])
+
+    m = re.search(r'(\d{4})(\d{2})', name)
+    if m:
+        return (int(m.group(1)), int(m.group(2)))
+
+    return (0, 0)
+
+
+def get_reports_by_folder():
+    """
+    Returns a dict: { folder_name: [sorted filenames descending] }
+    for each folder in REPORT_FOLDERS. Also collects any files sitting
+    directly in the root reports directory under an 'Other' key.
+    """
+    base = app.config['UPLOAD_FOLDER']
+    result = {}
+
+    for folder in REPORT_FOLDERS:
+        folder_path = os.path.join(base, folder)
+        os.makedirs(folder_path, exist_ok=True)
+        files = [
+            f for f in os.listdir(folder_path)
+            if os.path.isfile(os.path.join(folder_path, f)) and not f.startswith('.')
+        ]
+        files.sort(key=sort_key_for_report, reverse=True)
+        result[folder] = files
+
+    # Loose files in root reports dir (not inside a subfolder)
+    root_files = [
+        f for f in os.listdir(base)
+        if os.path.isfile(os.path.join(base, f)) and not f.startswith('.')
+    ]
+    root_files.sort(key=sort_key_for_report, reverse=True)
+    if root_files:
+        result['Other'] = root_files
+
+    return result
+
+
 @app.route("/delete_report", methods=["POST"])
 def delete_report():
     auth = request.authorization
@@ -73,11 +147,17 @@ def delete_report():
         return authenticate()
     
     filename = request.form.get("delete_file", "").strip()
+    folder = request.form.get("delete_folder", "").strip()
+
     if not filename:
         flash("Please provide a filename.")
         return redirect(url_for("admin_dashboard"))
 
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    # Allow deletion from a subfolder or root
+    if folder and folder in REPORT_FOLDERS:
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], folder, filename)
+    else:
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
 
     if os.path.exists(file_path):
         os.remove(file_path)
@@ -87,9 +167,11 @@ def delete_report():
     
     return redirect(url_for("admin_dashboard"))
 
+
 @app.route("/reports/<path:filename>", endpoint="custom_reports")
-def reports(filename):
+def reports_file(filename):
     return send_from_directory("static/reports", filename)
+
 
 @app.route("/")
 def dashboard():
@@ -105,11 +187,8 @@ def dashboard():
 
 @app.route("/reports")
 def reports():
-    report_list = os.listdir("static/reports/")
-    return render_template(
-        "report.html", report_list=report_list
-    )
-
+    reports_data = get_reports_by_folder()
+    return render_template("report.html", reports_data=reports_data, report_folders=REPORT_FOLDERS)
 
 
 @app.route('/success', methods=['POST'])
@@ -118,12 +197,21 @@ def success():
     if not auth or not check_auth(auth.username, auth.password):
         return authenticate()
     
-    if request.method == 'POST':  
-        f = request.files['file']
+    if request.method == 'POST':
+        f = request.files.get('file')
+        folder = request.form.get('folder', '').strip()
+
         if f:
-            save_path = os.path.join(app.config['UPLOAD_FOLDER'], f.filename)
-            f.save(save_path)  
+            if folder and folder in REPORT_FOLDERS:
+                save_dir = os.path.join(app.config['UPLOAD_FOLDER'], folder)
+            else:
+                save_dir = app.config['UPLOAD_FOLDER']
+
+            os.makedirs(save_dir, exist_ok=True)
+            save_path = os.path.join(save_dir, f.filename)
+            f.save(save_path)
             return redirect(url_for('reports'))
+
 
 @app.route("/admin", methods=["GET", "POST"])
 def admin_dashboard():
@@ -155,7 +243,7 @@ def admin_dashboard():
         flash("Transaction recorded successfully.")
         return redirect(url_for("admin_dashboard"))
 
-    return render_template("admin.html")
+    return render_template("admin.html", report_folders=REPORT_FOLDERS)
 
 
 @app.route("/cache")

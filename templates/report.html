@@ -19,15 +19,57 @@
         </nav>
     </div>
 </header>
-<body>
-    <div class="report-page">
-        <h2 class="report-page-title">Available Reports</h2>
-        <ul class="report-list">
-        {% for report in report_list %}
-            <li><a href="/reports/{{ report }}" target="_blank">{{ report }}</a></li>
-        {% endfor %}
-        </ul>
-    </div>
-</body>
 
+<main>
+    <h2 class="report-page-title">Reports</h2>
+
+    {% set folder_order = report_folders + (['Other'] if 'Other' in reports_data else []) %}
+
+    {% for folder in folder_order %}
+        {% if folder in reports_data %}
+        <section class="report-folder">
+            <div class="folder-header" onclick="toggleFolder(this)">
+                <h3>{{ folder }}</h3>
+                <span class="folder-arrow">▶</span>
+            </div>
+            <div class="folder-content">
+                {% if reports_data[folder] %}
+                <ul class="report-list">
+                    {% for filename in reports_data[folder] %}
+                    <li>
+                        <a href="/reports/{{ folder | urlencode }}/{{ filename }}" target="_blank">
+                            {{ filename }}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="empty-folder">No reports yet.</p>
+                {% endif %}
+            </div>
+        </section>
+        {% endif %}
+    {% endfor %}
+</main>
+
+<script>
+function toggleFolder(header) {
+    header.classList.toggle('active');
+    const content = header.nextElementSibling;
+    if (content.style.maxHeight) {
+        content.style.maxHeight = null;
+        content.classList.remove('open');
+    } else {
+        content.style.maxHeight = content.scrollHeight + 20 + 'px';
+        content.classList.add('open');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const firstHeader = document.querySelector('.folder-header');
+    if (firstHeader) toggleFolder(firstHeader);
+});
+</script>
+
+</body>
 </html>
