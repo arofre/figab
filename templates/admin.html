@@ -2,104 +2,334 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <title>Admin - Add Transaction</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FIGAB Capital Partners — Admin</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
 </head>
-<body class="p-4">
-  <h2>Admin - Add Transaction</h2>
+<body>
+
+<div class="accent-bar"></div>
+
+<header>
+  <div class="header-inner">
+    <div class="logo-block">
+      <span class="logo-monogram">FCP</span>
+      <div class="logo-divider"></div>
+      <div class="logo-full">FIGAB Capital<br>Partners</div>
+    </div>
+    <nav id="menu">
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/reports">Reports</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<!-- Page title bar -->
+<div class="page-title-bar">
+  <div class="page-title-inner">
+    <div class="page-title-cell">
+      <span class="page-eyebrow">Restricted</span>
+      <h1>Admin</h1>
+    </div>
+    <span class="admin-badge">Authenticated</span>
+  </div>
+</div>
+
+<main>
 
   {% with messages = get_flashed_messages() %}
     {% if messages %}
-      <div class="alert alert-info">
-        {% for message in messages %}
-          <div>{{ message }}</div>
-        {% endfor %}
-      </div>
+      {% for message in messages %}
+        <div class="flash-bar">{{ message }}</div>
+      {% endfor %}
     {% endif %}
   {% endwith %}
 
-  <div id="transaction-container">
-    <form method="post">
-      <label for="ticker">Ticker:</label>
-      <input type="text" id="ticker" name="ticker" required>
+  <!-- ══════════════════════════════════
+       01 · TRANSACTION LEDGER
+       ══════════════════════════════════ -->
+  <section class="admin-section">
+    <div class="section-header">
+      <span class="section-num">01</span>
+      <span class="section-title">Transaction Ledger</span>
+      <span class="section-meta">{{ transactions | length }} records · transactions.csv</span>
+    </div>
 
-      <label for="amount">Amount:</label>
-      <input type="number" id="amount" name="amount" min="1" required>
-
-      <label for="action">Action:</label>
-      <select id="action" name="action" required>
+    <div class="tx-filter-bar">
+      <input type="text" id="tx-search" placeholder="Filter by ticker, type, date…" oninput="filterTable()" />
+      <select id="tx-type-filter" onchange="filterTable()">
+        <option value="">All types</option>
         <option value="Buy">Buy</option>
         <option value="Sell">Sell</option>
+        <option value="Short">Short</option>
       </select>
+      <span class="tx-count" id="tx-visible-count">{{ transactions | length }} shown</span>
+    </div>
 
-      <label for="date">Date:</label>
-      <input type="date" id="date" name="date" required>
+    <div class="tx-table-wrap">
+      <table id="tx-table">
+        <thead>
+          <tr>
+            <th onclick="sortTable(0)"><span>#</span><span class="sort-arrow">↕</span></th>
+            <th onclick="sortTable(1)">Ticker<span class="sort-arrow">↕</span></th>
+            <th onclick="sortTable(2)">Date<span class="sort-arrow">↕</span></th>
+            <th onclick="sortTable(3)">Type<span class="sort-arrow">↕</span></th>
+            <th onclick="sortTable(4)">Amount<span class="sort-arrow">↕</span></th>
+            <th onclick="sortTable(5)">Price<span class="sort-arrow">↕</span></th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tx-body">
+          {% for tx in transactions %}
+          <tr data-row="{{ loop.index0 }}">
+            <td class="row-idx">{{ loop.index }}</td>
+            <td class="ticker">{{ tx.Ticker }}</td>
+            <td>{{ tx.Date }}</td>
+            <td class="type-{{ tx.Type | lower }}">{{ tx.Type }}</td>
+            <td class="amount">{{ tx.Amount }}</td>
+            <td class="price">{{ tx.Price if tx.Price else '—' }}</td>
+            <td>
+              <form method="post" action="/admin/delete_transaction" style="display:inline;"
+                    onsubmit="return confirm('Delete {{ tx.Ticker }} {{ tx.Type }} on {{ tx.Date }}?')">
+                <input type="hidden" name="row_index" value="{{ loop.index0 }}" />
+                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
 
-      <button type="submit">Submit</button>
-    </form>
+  <!-- ══════════════════════════════════
+       02 · ADD TRANSACTION
+       ══════════════════════════════════ -->
+  <section class="admin-section">
+    <div class="section-header">
+      <span class="section-num">02</span>
+      <span class="section-title">Add Transaction</span>
+    </div>
+    <div class="section-body">
+      <form method="post" action="/admin/add_transaction">
+        <div class="form-grid">
+          <div class="form-field">
+            <label for="ticker">Ticker</label>
+            <input type="text" id="ticker" name="ticker" placeholder="e.g. AAPL" required />
+          </div>
+          <div class="form-field">
+            <label for="date">Date</label>
+            <input type="date" id="date" name="date" required />
+          </div>
+          <div class="form-field">
+            <label for="action">Type</label>
+            <select id="action" name="action" required>
+              <option value="Buy">Buy</option>
+              <option value="Sell">Sell</option>
+              <option value="Short">Short</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="amount">Amount</label>
+            <input type="number" id="amount" name="amount" min="1" placeholder="e.g. 50" required />
+          </div>
+          <div class="form-field">
+            <label for="price">Price (optional)</label>
+            <input type="number" id="price" name="price" step="0.001" placeholder="e.g. 125.50" />
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Record Transaction</button>
+          <button type="reset" class="btn btn-ghost">Clear</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════
+       03 · REPORTS
+       ══════════════════════════════════ -->
+  <section class="admin-section">
+    <div class="section-header">
+      <span class="section-num">03</span>
+      <span class="section-title">Upload Report</span>
+    </div>
+    <div class="section-body">
+      <form action="/success" method="post" enctype="multipart/form-data">
+        <div class="form-grid">
+          <div class="form-field">
+            <label for="folder">Folder</label>
+            <select id="folder" name="folder" required>
+              {% for folder in report_folders %}
+                <option value="{{ folder }}">{{ folder }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-field wide">
+            <label for="file">File</label>
+            <input type="file" name="file" id="file" required />
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Upload</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════
+       04 · DELETE REPORT
+       ══════════════════════════════════ -->
+  <section class="admin-section">
+    <div class="section-header">
+      <span class="section-num">04</span>
+      <span class="section-title">Delete Report</span>
+    </div>
+    <div class="section-body">
+      <form action="/delete_report" method="post"
+            onsubmit="return confirm('Permanently delete this report?')">
+        <div class="form-grid">
+          <div class="form-field">
+            <label for="delete_folder">Folder</label>
+            <select id="delete_folder" name="delete_folder">
+              <option value="">— Root —</option>
+              {% for folder in report_folders %}
+                <option value="{{ folder }}">{{ folder }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-field wide">
+            <label for="delete_file">Filename</label>
+            <input type="text" id="delete_file" name="delete_file"
+                   placeholder="e.g. 2025-01 Monthly Report.pdf" />
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-danger">Delete Report</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════
+       05 · DANGER ZONE
+       ══════════════════════════════════ -->
+  <section class="admin-section">
+    <div class="section-header">
+      <span class="section-num">05</span>
+      <span class="section-title">Danger Zone</span>
+    </div>
+    <div class="section-body">
+      <div class="danger-grid">
+
+        <div class="danger-item">
+          <span class="danger-item-label">Rebuild Cache</span>
+          <span class="danger-item-desc">Recompute dashboard data from scratch.</span>
+          <form action="/cache" method="get" style="margin-top:8px;">
+            <button type="submit" class="btn btn-ghost">Rebuild Cache</button>
+          </form>
+        </div>
+
+        <div class="danger-item">
+          <span class="danger-item-label">Incremental Update</span>
+          <span class="danger-item-desc">Fetch latest prices and update portfolio.</span>
+          <form action="/increment" method="get" style="margin-top:8px;">
+            <button type="submit" class="btn btn-ghost">Run Increment</button>
+          </form>
+        </div>
+
+        <div class="danger-item">
+          <span class="danger-item-label">Reset Database</span>
+          <span class="danger-item-desc">Wipe the database entirely. Cannot be undone.</span>
+          <form action="/reset_db" method="get"
+                onsubmit="return confirm('Reset the entire database? This cannot be undone.')"
+                style="margin-top:8px;">
+            <button type="submit" class="btn btn-danger-solid">Reset Database</button>
+          </form>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="footer-inner">
+    <span class="footer-brand">FIGAB Capital Partners</span>
+    <span class="footer-meta">Admin Interface &nbsp;·&nbsp; Restricted Access</span>
   </div>
+</footer>
 
-  <hr style="margin: 40px 0;">
+<script>
+/* ── Filter & sort ── */
+let sortCol = -1, sortAsc = true;
 
-  <div id="transaction-container">
-    <h3 style="margin-bottom: 16px; color: #007bff;">Upload Report</h3>
-    <form action="/success" method="post" enctype="multipart/form-data">
-      <label for="folder">Folder:</label>
-      <select id="folder" name="folder" required>
-        {% for folder in report_folders %}
-          <option value="{{ folder }}">{{ folder }}</option>
-        {% endfor %}
-      </select>
+function filterTable() {
+  const query  = document.getElementById('tx-search').value.toLowerCase();
+  const typeF  = document.getElementById('tx-type-filter').value.toLowerCase();
+  const rows   = document.querySelectorAll('#tx-body tr');
+  let visible  = 0;
 
-      <label for="file">File:</label>
-      <input type="file" name="file" id="file" required />
+  rows.forEach(row => {
+    const cells = row.querySelectorAll('td');
+    const text  = Array.from(cells).map(c => c.textContent).join(' ').toLowerCase();
+    const type  = cells[3] ? cells[3].textContent.toLowerCase() : '';
+    const match = text.includes(query) && (typeF === '' || type === typeF);
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
 
-      <input type="submit" value="Upload" style="padding:10px 14px; background:#007bff; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:600;">
-    </form>
-  </div>
+  document.getElementById('tx-visible-count').textContent = visible + ' shown';
+}
 
-  <hr style="margin: 40px 0;">
+function sortTable(colIdx) {
+  const tbody = document.getElementById('tx-body');
+  const rows  = Array.from(tbody.querySelectorAll('tr'));
+  const ths   = document.querySelectorAll('#tx-table thead th');
 
-  <div id="delete-report-container">
-    <h3 style="margin-bottom: 16px; color: #e74c3c;">Delete Report</h3>
-    <form action="/delete_report" method="post">
-      <label for="delete_folder">Folder:</label>
-      <select id="delete_folder" name="delete_folder">
-        <option value="">— Root (no folder) —</option>
-        {% for folder in report_folders %}
-          <option value="{{ folder }}">{{ folder }}</option>
-        {% endfor %}
-      </select>
+  if (sortCol === colIdx) {
+    sortAsc = !sortAsc;
+  } else {
+    sortCol = colIdx;
+    sortAsc = true;
+  }
 
-      <label for="delete_file">Filename:</label>
-      <input type="text" id="delete_file" name="delete_file" placeholder="e.g. 2025-01 Monthly Report.pdf">
+  ths.forEach((th, i) => {
+    th.classList.toggle('sorted', i === colIdx);
+    const arrow = th.querySelector('.sort-arrow');
+    if (arrow) arrow.textContent = (i === colIdx) ? (sortAsc ? '↑' : '↓') : '↕';
+  });
 
-      <button type="submit" style="background-color: #e74c3c; color: white;">Delete</button>
-    </form>
-  </div>
-
-  <hr style="margin: 40px 0;">
-
-  <h3 style="color:#e74c3c; margin-bottom:16px;">Danger Zone</h3>
-
-  <form id="reset-form" action="/reset_db" method="get" onsubmit="return confirmReset()">
-    <button type="submit" style="background-color: #e74c3c; color: white;">Reset Database</button>
-  </form>
-
-  <form id="cache-form" action="/cache" method="get" style="margin-top: 16px;">
-    <button type="submit" style="background-color: #e73cdc; color: white;">Rebuild Cache</button>
-  </form>
-
-  <form id="increment-form" action="/increment" method="get" style="margin-top: 16px;">
-    <button type="submit" style="background-color: #e74c3c; color: white;">Increment</button>
-  </form>
-
-  <script>
-    function confirmReset() {
-      return confirm("Are you sure you want to reset the database? This action cannot be undone.");
+  rows.sort((a, b) => {
+    const av = a.querySelectorAll('td')[colIdx]?.textContent.trim() ?? '';
+    const bv = b.querySelectorAll('td')[colIdx]?.textContent.trim() ?? '';
+    const an = parseFloat(av.replace(/[^0-9.-]/g, ''));
+    const bn = parseFloat(bv.replace(/[^0-9.-]/g, ''));
+    let cmp;
+    if (!isNaN(an) && !isNaN(bn)) {
+      cmp = an - bn;
+    } else {
+      cmp = av.localeCompare(bv);
     }
-  </script>
+    return sortAsc ? cmp : -cmp;
+  });
+
+  rows.forEach(r => tbody.appendChild(r));
+}
+
+/* Set today as default date */
+document.addEventListener('DOMContentLoaded', () => {
+  const dateInput = document.getElementById('date');
+  if (dateInput && !dateInput.value) {
+    dateInput.value = new Date().toISOString().split('T')[0];
+  }
+});
+</script>
+
 </body>
 </html>

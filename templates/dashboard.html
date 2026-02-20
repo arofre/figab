@@ -149,24 +149,45 @@
     </div>
 
     <!-- Bylaws -->
-<div class="info-column bylaws-card">
-  <div class="col-header">
-    <span class="col-number">03</span>
-    <h3>Articles of Association</h3>
-  </div>
+    <div class="info-column bylaws-card">
+      <div class="col-header">
+        <span class="col-number">03</span>
+        <h3>Articles of Association</h3>
+      </div>
 
-  <div class="bylaws-content">
-    <p class="bylaws-description">
-      The full Articles of Association are available as a formal document.
-      Please refer to the official PDF for complete terms and governance provisions.
-    </p>
+      <div class="bylaws-body">
+        <div class="bylaws-doc-row">
+          <div class="bylaws-doc-icon">
+            <svg width="26" height="34" viewBox="0 0 26 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="0.5" y="0.5" width="25" height="33" rx="2.5" fill="var(--surface-2)" stroke="var(--border)"/>
+              <path d="M16 0.5V8H25" stroke="var(--border)"/>
+              <line x1="5" y1="13" x2="21" y2="13" stroke="var(--accent-dim)" stroke-width="1.1" stroke-linecap="round"/>
+              <line x1="5" y1="17" x2="21" y2="17" stroke="var(--accent-dim)" stroke-width="1.1" stroke-linecap="round"/>
+              <line x1="5" y1="21" x2="21" y2="21" stroke="var(--accent-dim)" stroke-width="1.1" stroke-linecap="round"/>
+              <line x1="5" y1="25" x2="14" y2="25" stroke="var(--accent-dim)" stroke-width="1.1" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="bylaws-doc-info">
+            <span class="bylaws-filename">Bylaws.pdf</span>
+            <span class="bylaws-filetype">PDF · Governing Document</span>
+          </div>
+          <span class="bylaws-badge">PDF</span>
+        </div>
 
-    <a class="bylaws-button" href="/reports/Other/Bylaws.pdf" target="_blank" rel="noopener">
-      View Official Document
-      <span class="arrow">→</span>
-    </a>
-  </div>
-</div>
+        <p class="bylaws-description">
+          The Articles of Association govern the investment mandate, decision-making process, and all formal provisions of FIGAB Capital Partners.
+        </p>
+
+        <a class="bylaws-open-btn" href="/reports/Bylaws.pdf" target="_blank" rel="noopener">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M6 1V9M6 9L3 6M6 9L9 6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M1 11H11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+          Open Document
+        </a>
+      </div>
+    </div>
+
   </div><!-- /info-sections -->
 
 </main>
@@ -178,6 +199,7 @@
   </div>
 </footer>
 
+
 <script>
 /* ── Chart setup ── */
 const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -185,7 +207,6 @@ const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 /* Read CSS variables for chart theming */
 const style = getComputedStyle(document.documentElement);
 const accentColor  = isDark ? '#4a7fe8' : '#2d6be4';
-const dimColor     = isDark ? '#3d4e65' : '#9baab8';
 const textColor    = isDark ? '#7e8fa8' : '#4b5769';
 const gridColor    = isDark ? 'rgba(36,48,72,0.8)' : 'rgba(221,226,234,0.8)';
 const tooltipBg    = isDark ? '#1a2336' : '#ffffff';
@@ -214,6 +235,8 @@ function makeGradient() {
   return grad;
 }
 
+const isMobile = window.innerWidth < 600;
+
 const valueChart = new Chart(ctx, {
   type: 'line',
   data: {
@@ -234,7 +257,7 @@ const valueChart = new Chart(ctx, {
       {
         label: '^OMX',
         data: omxFull,
-        borderColor: dimColor,
+        borderColor: '#C9A227',
         borderDash: [4, 5],
         fill: false,
         pointRadius: 0,
@@ -244,13 +267,12 @@ const valueChart = new Chart(ctx, {
       {
         label: '^GSPC',
         data: gspcFull,
-        borderColor: dimColor,
+        borderColor: '#B22222',
         borderDash: [2, 6],
         fill: false,
         pointRadius: 0,
         borderWidth: 1,
-        tension: 0.25,
-        borderColorOpacity: 0.5
+        tension: 0.25
       }
     ]
   },
@@ -270,20 +292,42 @@ const valueChart = new Chart(ctx, {
         bodyFont: { family: 'DM Mono, monospace', size: 11 },
         padding: 12,
         callbacks: {
-          label: ctx => ` ${ctx.dataset.label}  ${Math.round(ctx.parsed.y).toLocaleString('sv-SE')} SEK`
+          label: ctx =>
+            ` ${ctx.dataset.label}  ${Math.round(ctx.parsed.y).toLocaleString('sv-SE')} SEK`
         }
       }
     },
     scales: {
       x: {
         grid: { color: gridColor, borderColor: 'transparent' },
+        afterBuildTicks(axis) {
+          if (window.innerWidth <= 600) {
+            const lastIdx = axis.chart.data.labels.length - 1;
+            if (axis.ticks.length && axis.ticks[axis.ticks.length - 1].value !== lastIdx) {
+              axis.ticks.push({ value: lastIdx });
+            }
+          }
+        },
         ticks: {
           color: textColor,
           font: { family: 'DM Mono, monospace', size: 10 },
-          maxRotation: 30,
+          maxRotation: window.innerWidth <= 600 ? 35 : 30,
+          minRotation: window.innerWidth <= 600 ? 35 : 30,
+          align: window.innerWidth <= 600 ? 'start' : 'center',
           autoSkip: true,
-          maxTicksLimit: 10
-        }
+          maxTicksLimit: window.innerWidth <= 600 ? 10 : 10,
+          includeBounds: true,
+          callback: function(value, index, ticks) {
+            const currentLabels = this.chart.data.labels;
+            const label = currentLabels[value];
+            if (!label) return '';
+            if (window.innerWidth <= 600) {
+              const d = new Date(label);
+              return d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+            }
+            return label;
+          }
+        },
       },
       y: {
         position: 'right',

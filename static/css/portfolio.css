@@ -501,44 +501,6 @@ main {
   text-transform: uppercase;
 }
 
-/* Bylaws */
-.bylaw-item {
-  display: flex;
-  gap: 12px;
-  padding: 9px 0;
-  border-bottom: 1px solid rgba(128,140,160,0.12);
-  align-items: flex-start;
-}
-
-.bylaw-item:last-child { border-bottom: none; }
-
-.b-num {
-  font-family: 'DM Mono', monospace;
-  font-size: 0.58rem;
-  color: var(--accent);
-  opacity: 0.7;
-  flex-shrink: 0;
-  padding-top: 4px;
-  min-width: 22px;
-  letter-spacing: 0.05em;
-}
-
-.b-text {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 0.9rem;
-  font-weight: 300;
-  color: var(--text-dim);
-  line-height: 1.55;
-  letter-spacing: 0.01em;
-}
-
-/* ── Legacy collapsible (kept for compatibility) ── */
-.collapsible-section { display: none; }
-
-/* ── Info column height matching ── */
-.info-sections { align-items: stretch; }
-.info-column { display: flex; flex-direction: column; }
-
 /* ── Prior positions collapsible ── */
 .past-overflow {
   max-height: 0;
@@ -573,6 +535,110 @@ main {
   line-height: 1;
 }
 .past-chevron.rotated { transform: rotate(180deg); }
+
+/* ═══════════════════
+   BYLAWS CARD
+   ═══════════════════ */
+.bylaws-card {
+  background: var(--surface);
+}
+
+.bylaws-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  flex: 1;
+}
+
+/* Document row: icon + filename + badge */
+.bylaws-doc-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.bylaws-doc-icon {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.bylaws-doc-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.bylaws-filename {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bylaws-filetype {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.bylaws-badge {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border: 1px solid var(--accent-dim);
+  padding: 3px 7px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  background: var(--accent-bg);
+}
+
+.bylaws-description {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.92rem;
+  font-weight: 300;
+  color: var(--text-dim);
+  line-height: 1.65;
+  letter-spacing: 0.01em;
+}
+
+.bylaws-open-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  padding: 10px 18px;
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-radius: 2px;
+  transition: background 0.2s, opacity 0.2s;
+  align-self: flex-start;
+}
+
+.bylaws-open-btn:hover {
+  background: var(--accent-hi);
+}
+
+.bylaws-open-btn svg {
+  flex-shrink: 0;
+}
 
 /* ═══════════════════
    FOOTER
@@ -611,7 +677,7 @@ footer {
 }
 
 /* ═══════════════════
-   CHART LEGEND OVERRIDE
+   CHART LEGEND
    ═══════════════════ */
 .chart-legend {
   display: flex;

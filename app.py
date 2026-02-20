@@ -28,9 +28,10 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.secret_key = os.environ.get("SECRET_KEY", "fallback-dev-key")
 
 REPORT_FOLDERS = ["Monthly reports", "Board meetings", "General meeting"]
+CSV_FILE = "transactions.csv"
 
 with app.app_context():
-    portfolio_tracker = FinTrack(initial_cash=150000,currency="SEK", csv_file="transactions.csv")
+    portfolio_tracker = FinTrack(initial_cash=150000,currency="SEK", csv_file=CSV_FILE)
 
 def beta_ratio(asset_prices, benchmark_prices):
     asset_prices = np.array(asset_prices)
@@ -71,10 +72,6 @@ def authenticate():
 
 
 def sort_key_for_report(filename):
-    """
-    Extract a (year, month) sort key from a filename so reports are ordered
-    descending. Falls back to (0, 0) for unrecognised filenames.
-    """
     name = os.path.splitext(filename)[0].lower()
 
     MONTHS = {
@@ -110,11 +107,6 @@ def sort_key_for_report(filename):
 
 
 def get_reports_by_folder():
-    """
-    Returns a dict: { folder_name: [sorted filenames descending] }
-    for each folder in REPORT_FOLDERS. Also collects any files sitting
-    directly in the root reports directory under an 'Other' key.
-    """
     base = app.config['UPLOAD_FOLDER']
     result = {}
 
@@ -128,7 +120,6 @@ def get_reports_by_folder():
         files.sort(key=sort_key_for_report, reverse=True)
         result[folder] = files
 
-    # Loose files in root reports dir (not inside a subfolder)
     root_files = [
         f for f in os.listdir(base)
         if os.path.isfile(os.path.join(base, f)) and not f.startswith('.')
@@ -138,6 +129,39 @@ def get_reports_by_folder():
         result['Other'] = root_files
 
     return result
+
+
+def load_transactions():
+    """Read transactions.csv and return list of dicts."""
+    transactions = []
+    if not os.path.exists(CSV_FILE):
+        return transactions
+    with open(CSV_FILE, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split(';')
+        # Pad to 5 fields
+        while len(parts) < 5:
+            parts.append('')
+        transactions.append({
+            'Ticker': parts[0],
+            'Date':   parts[1],
+            'Type':   parts[2],
+            'Amount': parts[3],
+            'Price':  parts[4],
+        })
+    return transactions
+
+
+def save_transactions(transactions):
+    """Write list of dicts back to transactions.csv."""
+    with open(CSV_FILE, 'w', encoding='utf-8') as f:
+        for tx in transactions:
+            price = tx.get('Price', '')
+            f.write(f"{tx['Ticker']};{tx['Date']};{tx['Type']};{tx['Amount']};{price}\n")
 
 
 @app.route("/delete_report", methods=["POST"])
@@ -153,7 +177,6 @@ def delete_report():
         flash("Please provide a filename.")
         return redirect(url_for("admin_dashboard"))
 
-    # Allow deletion from a subfolder or root
     if folder and folder in REPORT_FOLDERS:
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], folder, filename)
     else:
@@ -210,40 +233,74 @@ def success():
             os.makedirs(save_dir, exist_ok=True)
             save_path = os.path.join(save_dir, f.filename)
             f.save(save_path)
-            return redirect(url_for('reports'))
+            flash(f"Report '{f.filename}' uploaded successfully.")
+            return redirect(url_for('admin_dashboard'))
 
 
-@app.route("/admin", methods=["GET", "POST"])
+@app.route("/admin", methods=["GET"])
 def admin_dashboard():
     auth = request.authorization
     if not auth or not check_auth(auth.username, auth.password):
         return authenticate()
 
-    if request.method == "POST":
-        ticker = request.form.get("ticker", "").strip().upper()
-        amount = request.form.get("amount", "").strip()
-        action = request.form.get("action")
-        date_str = request.form.get("date")
+    transactions = load_transactions()
+    return render_template("admin.html", report_folders=REPORT_FOLDERS, transactions=transactions)
 
-        if not ticker or not amount or action not in ("Buy", "Sell"):
-            flash("Please fill out all fields correctly.")
-            return redirect(url_for("admin_dashboard"))
 
-        try:
-            amount = int(amount)
-        except ValueError:
-            flash("Amount must be an integer.")
-            return redirect(url_for("admin_dashboard"))
+@app.route("/admin/add_transaction", methods=["POST"])
+def add_transaction():
+    auth = request.authorization
+    if not auth or not check_auth(auth.username, auth.password):
+        return authenticate()
 
-        line = f"{ticker};{date_str};{action};{amount};\n"
+    ticker   = request.form.get("ticker", "").strip().upper()
+    amount   = request.form.get("amount", "").strip()
+    action   = request.form.get("action", "").strip()
+    date_str = request.form.get("date", "").strip()
+    price    = request.form.get("price", "").strip()
 
-        with open("transactions.csv", "a") as f:
-            f.write(line)
-
-        flash("Transaction recorded successfully.")
+    if not ticker or not amount or action not in ("Buy", "Sell", "Short"):
+        flash("Please fill out all required fields correctly.")
         return redirect(url_for("admin_dashboard"))
 
-    return render_template("admin.html", report_folders=REPORT_FOLDERS)
+    try:
+        int(amount)
+    except ValueError:
+        flash("Amount must be an integer.")
+        return redirect(url_for("admin_dashboard"))
+
+    line = f"{ticker};{date_str};{action};{amount};{price}\n"
+
+    with open(CSV_FILE, "a", encoding='utf-8') as f:
+        f.write(line)
+
+    flash(f"Transaction recorded: {action} {amount} × {ticker} on {date_str}.")
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/delete_transaction", methods=["POST"])
+def delete_transaction():
+    auth = request.authorization
+    if not auth or not check_auth(auth.username, auth.password):
+        return authenticate()
+
+    try:
+        row_index = int(request.form.get("row_index", -1))
+    except ValueError:
+        flash("Invalid row index.")
+        return redirect(url_for("admin_dashboard"))
+
+    transactions = load_transactions()
+
+    if row_index < 0 or row_index >= len(transactions):
+        flash("Transaction not found.")
+        return redirect(url_for("admin_dashboard"))
+
+    removed = transactions.pop(row_index)
+    save_transactions(transactions)
+
+    flash(f"Deleted: {removed['Type']} {removed['Amount']} × {removed['Ticker']} on {removed['Date']}.")
+    return redirect(url_for("admin_dashboard"))
 
 
 @app.route("/cache")
@@ -322,7 +379,6 @@ def reset_database(user_id=None):
     print(f"Database location: {db_path}")
 
     if os.path.exists(db_path):
-
         try:
             conn = sqlite3.connect(db_path)
             conn.close()
@@ -373,7 +429,6 @@ def scheduled_incremental_update():
 
 if __name__ == "__main__":    
     try:
-        
         port = int(os.environ.get("PORT", 8080))
         app.run(host="0.0.0.0", port=port)
     except (KeyboardInterrupt, SystemExit):
