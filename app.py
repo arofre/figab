@@ -404,9 +404,6 @@ def returns():
                 to_date=datetime.date.today()
                 ).replace('\n', '<br>')
 
-@app.route("/zohoverify/verifyforzoho.html")
-def verification():
-    return render_template("verifyforzoho.html")
 
 @app.route("/increment")
 def incremental_update():
