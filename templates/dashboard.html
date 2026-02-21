@@ -148,11 +148,11 @@
       </div>
       <div class="legend-item">
         <div class="legend-line" style="background: rgba(168,196,176,0.6); border-top: 1px dashed rgba(168,196,176,0.5); height:0; margin-top:1px;"></div>
-        ^OMX
+        OMXS30
       </div>
       <div class="legend-item">
         <div class="legend-line" style="background: transparent; border-top: 1px dashed rgba(122,126,116,0.4); height:0; margin-top:1px;"></div>
-        ^GSPC
+        S&P500
       </div>
     </div>
   </div>
@@ -252,11 +252,11 @@
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-
 /* Palette */
+
 const portfolioColor = '#B8974A';
-const omxColor       = isDark ? 'rgba(168,196,176,0.55)' : 'rgba(120,160,130,0.6)';
-const gspcColor      = isDark ? 'rgba(122,126,116,0.4)'  : 'rgba(100,104,96,0.45)';
+const omxColor       = isDark ? 'rgba(35,72,192,0.5)' : 'rgba(35,72,192,0.5)';
+const gspcColor      = isDark ? 'rgba(202,15,15,0.5)'  : 'rgba(202,15,15,0.5)';
 const gridColor      = isDark ? 'rgba(31,52,38,0.8)'     : 'rgba(221,216,204,0.8)';
 const textColor      = isDark ? '#4A6054'                 : '#7A7E74';
 const tooltipBg      = isDark ? '#111F16'                 : '#FDFAF5';
@@ -295,30 +295,30 @@ const valueChart = new Chart(ctx, {
         borderColor: portfolioColor,
         backgroundColor: makeGradient(),
         fill: true,
-        borderWidth: 1.8,
+        borderWidth: 2,
         pointRadius: 0,
         pointHoverRadius: 4,
         pointHoverBackgroundColor: portfolioColor,
         tension: 0.25
       },
       {
-        label: '^OMX',
+        label: 'OMXS30',
         data: omxFull,
         borderColor: omxColor,
         borderDash: [4, 5],
         fill: false,
         pointRadius: 0,
-        borderWidth: 1.2,
+        borderWidth: 1.8,
         tension: 0.25
       },
       {
-        label: '^GSPC',
+        label: 'S&P500',
         data: gspcFull,
         borderColor: gspcColor,
-        borderDash: [2, 6],
+        borderDash: [4, 5],
         fill: false,
         pointRadius: 0,
-        borderWidth: 1,
+        borderWidth: 1.8,
         tension: 0.25
       }
     ]
@@ -326,17 +326,17 @@ const valueChart = new Chart(ctx, {
   options: {
     responsive: true,
     maintainAspectRatio: false,
-    events: [],
+    events: ['mousemove', 'mouseout', 'click', 'touchstart', 'touchmove'],   
     interaction: { mode: 'index', intersect: false },
     plugins: {
-      legend: { display: false },
+      legend: { display: true },
       tooltip: {
         backgroundColor: tooltipBg,
         borderColor: tooltipBorder,
         borderWidth: 1,
         titleColor: tooltipTitle,
         bodyColor: tooltipBody,
-        titleFont: { family: 'EB Garamond, Georgia, serif', size: 12, style: 'italic', weight: '400' },
+        titleFont: { family: 'EB Garamond, Georgia, serif', size: 12, weight: '400' },
         bodyFont:  { family: 'EB Garamond, Georgia, serif', size: 12 },
         padding: 14,
         callbacks: {
@@ -350,7 +350,7 @@ const valueChart = new Chart(ctx, {
         grid: { color: gridColor, borderColor: 'transparent' },
         ticks: {
           color: textColor,
-          font: { family: 'EB Garamond, Georgia, serif', size: 11, style: 'italic' },
+          font: { family: 'EB Garamond, Georgia, serif', size: 11 },
           maxRotation: window.innerWidth <= 600 ? 35 : 30,
           minRotation: window.innerWidth <= 600 ? 35 : 30,
           autoSkip: true,
@@ -380,50 +380,7 @@ const valueChart = new Chart(ctx, {
   }
 });
 
-/* ── Press-and-hold tooltip ── */
-(function() {
-  const canvas = document.getElementById('valueChart');
-  let pressing = false;
 
-  function showTooltip(e) {
-    if (!pressing) return;
-    const rect = canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
-
-    const points = valueChart.getElementsAtEventForMode(
-      { offsetX: x, offsetY: y, native: e },
-      'index', { intersect: false }, true
-    );
-
-    if (points.length) {
-      valueChart.tooltip.setActiveElements(
-        valueChart.data.datasets.map((_, i) => ({ datasetIndex: i, index: points[0].index })),
-        { x, y }
-      );
-    } else {
-      valueChart.tooltip.setActiveElements([], {});
-    }
-    valueChart.update('none');
-  }
-
-  function hideTooltip() {
-    pressing = false;
-    valueChart.tooltip.setActiveElements([], {});
-    valueChart.update('none');
-  }
-
-  canvas.addEventListener('mousedown',  e => { pressing = true; showTooltip(e); });
-  canvas.addEventListener('mousemove',  e => { showTooltip(e); });
-  canvas.addEventListener('mouseup',    hideTooltip);
-  canvas.addEventListener('mouseleave', hideTooltip);
-
-  canvas.addEventListener('touchstart', e => { e.preventDefault(); pressing = true; showTooltip(e); }, { passive: false });
-  canvas.addEventListener('touchmove',  e => { e.preventDefault(); showTooltip(e); }, { passive: false });
-  canvas.addEventListener('touchend',   hideTooltip);
-})();
 
 /* Time range */
 function setTimeRange(range, btn) {

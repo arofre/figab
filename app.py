@@ -328,9 +328,9 @@ def compute_dashboard_data_internal():
         year_ago = data[today_date - relativedelta(years=1)]
     except:
         year_ago = value[0]
-    pct_changes = {"This Week": (data[today_date] - week_ago) / week_ago * 100,
-                    "This Month": (data[today_date] -  month_ago) / month_ago * 100,
-                    "This Year": (data[today_date] - year_ago) / year_ago * 100,
+    pct_changes = {"Last Week": (data[today_date] - week_ago) / week_ago * 100,
+                    "Last Month": (data[today_date] -  month_ago) / month_ago * 100,
+                    "Last year": (data[today_date] - year_ago) / year_ago * 100,
                     "All Time": (value[-1] - value[0]) / value[0] * 100
                    }
 

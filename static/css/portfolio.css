@@ -612,7 +612,6 @@ header {
 
 .chart-label span {
   font-family: 'EB Garamond', serif;
-  font-style: italic;
   font-size: 0.82rem;
   color: var(--text-faint);
   display: block;
