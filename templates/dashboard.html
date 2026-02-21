@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FIGAB Capital Partners</title>
+<title>Figab Capital Partners</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/portfolio.css') }}">
 <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -13,15 +13,20 @@
 </head>
 <body>
 
-<!-- Accent line at very top -->
 <div class="accent-bar"></div>
 
+<!-- ══════════════════════════════════════
+     NAVIGATION
+══════════════════════════════════════ -->
 <header>
   <div class="header-inner">
     <div class="logo-block">
-      <span class="logo-monogram">FCP</span>
-      <div class="logo-divider"></div>
-      <div class="logo-full">FIGAB Capital<br>Partners</div>
+      <div class="logo-mark">
+        <span class="logo-mark-letters">FCP</span>
+      </div>
+      <div class="logo-wordmark">
+        <span class="logo-name">Figab Capital Partners</span>
+      </div>
     </div>
     <nav id="menu">
       <ul>
@@ -29,13 +34,58 @@
         <li><a href="/reports">Reports</a></li>
       </ul>
     </nav>
-
+    <div class="header-status">
+    </div>
   </div>
 </header>
 
-<main>
+<!-- ══════════════════════════════════════
+     HERO
+══════════════════════════════════════ -->
+<section class="hero">
+  <div class="hero-ring-inner"></div>
 
-  <!-- ── Metrics Bar ── -->
+  <div class="hero-content">
+    <div class="hero-mark">
+      <span class="hero-mark-letters">FCP</span>
+    </div>
+
+
+    <div class="hero-name">Figab Capital Partners</div>
+
+    <div class="hero-rule"></div>
+
+    <div class="hero-tagline">
+      Generating <em>alpha</em> since 2025.
+    </div>
+
+    <div class="hero-tagline-sub">Est. 2025 · Göteborg</div>
+
+    <a href="#performance" class="hero-scroll-btn">
+      <span class="hero-scroll-label">Portfolio</span>
+      <div class="hero-scroll-chevron">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 4l4 4 4-4"/>
+        </svg>
+      </div>
+    </a>
+  </div>
+
+  <span class="hero-est">Est. 2025</span>
+  <span class="hero-location">Göteborg · Sweden</span>
+</section>
+
+<!-- ══════════════════════════════════════
+     PERFORMANCE
+══════════════════════════════════════ -->
+<div id="performance">
+
+  <div class="section-divider">
+    <span class="section-divider-label">Portfolio Performance</span>
+    <div class="section-divider-line"></div>
+  </div>
+
+  <!-- Metrics Bar -->
   <div class="metrics-bar">
     <div class="metric-cell">
       <div class="m-key">Portfolio Value</div>
@@ -50,16 +100,16 @@
     <div class="metric-cell">
       <div class="m-key">Active Holdings</div>
       <div class="m-val">{{ current | length }}</div>
-      <div class="m-sub">Max 8 per bylaws</div>
+      <div class="m-sub">Maximum 8 per bylaws</div>
     </div>
     <div class="metric-cell">
       <div class="m-key">Fund Inception</div>
-      <div class="m-val" style="font-size:1.35rem; letter-spacing:0;">17 Feb 2025</div>
+      <div class="m-val" style="font-size:1.3rem; letter-spacing:0;">17 Feb 2025</div>
       <div class="m-sub">Operational</div>
     </div>
   </div>
 
-  <!-- ── PCT Strip ── -->
+  <!-- PCT Strip -->
   <div class="pct-strip">
     {% for key, value in pct_changes.items() %}
     <div class="pct-cell">
@@ -67,20 +117,18 @@
       <span class="p-val {% if value is not none and value >= 0 %}positive{% else %}negative{% endif %}">
         {% if value is not none %}
           {{ "%+.2f"|format(value) }}%
-        {% else %}
-          N/A
-        {% endif %}
+        {% else %}N/A{% endif %}
       </span>
     </div>
     {% endfor %}
   </div>
 
-  <!-- ── Chart ── -->
+  <!-- Chart -->
   <div class="chart-section">
     <div class="chart-top-bar">
       <div class="chart-label">
         <h3>Portfolio Development</h3>
-        <span>vs. ^OMX &amp; ^GSPC · indexed to inception</span>
+        <span>vs. OMXS30 and S&P500 · indexed to inception · SEK</span>
       </div>
       <div class="button-container">
         <button onclick="setTimeRange('1m', this)">1M</button>
@@ -95,27 +143,27 @@
     </div>
     <div class="chart-legend">
       <div class="legend-item">
-        <div class="legend-line" style="background: var(--accent);"></div>
+        <div class="legend-line" style="background: #B8974A;"></div>
         Portfolio
       </div>
       <div class="legend-item">
-        <div class="legend-line" style="background: var(--text-faint); border-top: 1px dashed var(--text-faint); height:0; margin-top:1px;"></div>
+        <div class="legend-line" style="background: rgba(168,196,176,0.6); border-top: 1px dashed rgba(168,196,176,0.5); height:0; margin-top:1px;"></div>
         ^OMX
       </div>
       <div class="legend-item">
-        <div class="legend-line" style="background: transparent; border-top: 1px dashed var(--text-faint); height:0; margin-top:1px; opacity:0.5;"></div>
+        <div class="legend-line" style="background: transparent; border-top: 1px dashed rgba(122,126,116,0.4); height:0; margin-top:1px;"></div>
         ^GSPC
       </div>
     </div>
   </div>
 
-  <!-- ── Three-Column Info ── -->
+  <!-- Three-column info -->
   <div class="info-sections">
 
     <!-- Current Holdings -->
     <div class="info-column">
       <div class="col-header">
-        <span class="col-number">01</span>
+        <span class="col-number">i.</span>
         <h3>Current Holdings</h3>
       </div>
       {% for item in current %}
@@ -126,10 +174,10 @@
       {% endfor %}
     </div>
 
-    <!-- Past Holdings -->
-    <div class="info-column" id="prior-column">
+    <!-- Prior Positions -->
+    <div class="info-column">
       <div class="col-header">
-        <span class="col-number">02</span>
+        <span class="col-number">ii.</span>
         <h3>Prior Positions</h3>
       </div>
       {% for item in past[:7] %}
@@ -142,46 +190,41 @@
         {% endfor %}
       </div>
 
-      <button class="past-toggle" id="past-toggle" onclick="togglePast()">
+      <button class="past-toggle" onclick="togglePast()">
         <span id="past-toggle-label">Show all</span>
         <span class="past-chevron" id="past-chevron">▾</span>
       </button>
     </div>
 
     <!-- Bylaws -->
-    <div class="info-column bylaws-card">
+    <div class="info-column">
       <div class="col-header">
-        <span class="col-number">03</span>
+        <span class="col-number">iii.</span>
         <h3>Articles of Association</h3>
       </div>
-
       <div class="bylaws-body">
         <div class="bylaws-doc-row">
-          <div class="bylaws-doc-icon">
-            <svg width="26" height="34" viewBox="0 0 26 34" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="0.5" y="0.5" width="25" height="33" rx="2.5" fill="var(--surface-2)" stroke="var(--border)"/>
-              <path d="M16 0.5V8H25" stroke="var(--border)"/>
-              <line x1="5" y1="13" x2="21" y2="13" stroke="var(--accent-dim)" stroke-width="1.1" stroke-linecap="round"/>
-              <line x1="5" y1="17" x2="21" y2="17" stroke="var(--accent-dim)" stroke-width="1.1" stroke-linecap="round"/>
-              <line x1="5" y1="21" x2="21" y2="21" stroke="var(--accent-dim)" stroke-width="1.1" stroke-linecap="round"/>
-              <line x1="5" y1="25" x2="14" y2="25" stroke="var(--accent-dim)" stroke-width="1.1" stroke-linecap="round"/>
-            </svg>
-          </div>
+          <svg width="24" height="32" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0; opacity:0.7;">
+            <rect x="0.5" y="0.5" width="23" height="31" rx="1.5" fill="var(--surface-2)" stroke="var(--border)"/>
+            <path d="M14 0.5V7H22" stroke="var(--border)"/>
+            <line x1="4" y1="12" x2="20" y2="12" stroke="var(--gold-dim)" stroke-width="1" stroke-linecap="round"/>
+            <line x1="4" y1="16" x2="20" y2="16" stroke="var(--gold-dim)" stroke-width="1" stroke-linecap="round"/>
+            <line x1="4" y1="20" x2="20" y2="20" stroke="var(--gold-dim)" stroke-width="1" stroke-linecap="round"/>
+            <line x1="4" y1="24" x2="13" y2="24" stroke="var(--gold-dim)" stroke-width="1" stroke-linecap="round"/>
+          </svg>
           <div class="bylaws-doc-info">
             <span class="bylaws-filename">Bylaws.pdf</span>
-            <span class="bylaws-filetype">PDF · Governing Document</span>
+            <span class="bylaws-filetype">Governing Document</span>
           </div>
           <span class="bylaws-badge">PDF</span>
         </div>
-
         <p class="bylaws-description">
-          The Articles of Association govern the investment mandate, decision-making process, and all formal provisions of FIGAB Capital Partners.
+          The Articles of Association govern the investment mandate, decision-making framework, and all formal provisions of Figab Capital Partners.
         </p>
-
         <a class="bylaws-open-btn" href="/reports/Bylaws.pdf" target="_blank" rel="noopener">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M6 1V9M6 9L3 6M6 9L9 6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M1 11H11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5.5 1v7M5.5 8L3 5.5M5.5 8L8 5.5"/>
+            <path d="M1 10h9"/>
           </svg>
           Open Document
         </a>
@@ -190,52 +233,56 @@
 
   </div><!-- /info-sections -->
 
-</main>
+</div><!-- /performance -->
 
+<!-- ══════════════════════════════════════
+     FOOTER
+══════════════════════════════════════ -->
 <footer>
   <div class="footer-inner">
-    <span class="footer-brand">FIGAB Capital Partners</span>
-    <span class="footer-meta">Private Investment Partnership &nbsp;·&nbsp; Est. 2025</span>
+    <span class="footer-brand">Figab Capital Partners</span>
+    <div class="footer-contact">
+      <span class="footer-contact-label">Contact</span>
+      <a>kontakt@figab.se</a>
+    </div>
+    <span class="footer-meta"> Est. 2025</span>
   </div>
 </footer>
 
 
-<script>
-/* ── Chart setup ── */
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-/* Read CSS variables for chart theming */
-const style = getComputedStyle(document.documentElement);
-const accentColor  = isDark ? '#4a7fe8' : '#2d6be4';
-const textColor    = isDark ? '#7e8fa8' : '#4b5769';
-const gridColor    = isDark ? 'rgba(36,48,72,0.8)' : 'rgba(221,226,234,0.8)';
-const tooltipBg    = isDark ? '#1a2336' : '#ffffff';
-const tooltipBorder= isDark ? '#243048' : '#dde2ea';
-const tooltipTitle = isDark ? '#4a7fe8' : '#2d6be4';
-const tooltipBody  = isDark ? '#7e8fa8' : '#4b5769';
+/* Palette */
+const portfolioColor = '#B8974A';
+const omxColor       = isDark ? 'rgba(168,196,176,0.55)' : 'rgba(120,160,130,0.6)';
+const gspcColor      = isDark ? 'rgba(122,126,116,0.4)'  : 'rgba(100,104,96,0.45)';
+const gridColor      = isDark ? 'rgba(31,52,38,0.8)'     : 'rgba(221,216,204,0.8)';
+const textColor      = isDark ? '#4A6054'                 : '#7A7E74';
+const tooltipBg      = isDark ? '#111F16'                 : '#FDFAF5';
+const tooltipBorder  = isDark ? '#1F3426'                 : '#DDD8CC';
+const tooltipTitle   = isDark ? '#D4B06A'                 : '#B8974A';
+const tooltipBody    = isDark ? '#A8B5A0'                 : '#3C4038';
 
 const fullLabels = {{ line_labels | tojson }};
-const fullData   = {{ line_data | tojson }};
-const omxFull    = {{ omx_data | tojson }};
-const gspcFull   = {{ gspc_data | tojson }};
+const fullData   = {{ line_data   | tojson }};
+const omxFull    = {{ omx_data    | tojson }};
+const gspcFull   = {{ gspc_data   | tojson }};
 
 const ctx = document.getElementById('valueChart').getContext('2d');
 
-/* Gradient fill for portfolio line */
 function makeGradient() {
-  const h = ctx.canvas.clientHeight || 280;
+  const h = ctx.canvas.clientHeight || 320;
   const grad = ctx.createLinearGradient(0, 0, 0, h);
   if (isDark) {
-    grad.addColorStop(0, 'rgba(74,127,232,0.18)');
-    grad.addColorStop(1, 'rgba(74,127,232,0.0)');
+    grad.addColorStop(0, 'rgba(184,151,74,0.14)');
+    grad.addColorStop(1, 'rgba(184,151,74,0.0)');
   } else {
-    grad.addColorStop(0, 'rgba(45,107,228,0.12)');
-    grad.addColorStop(1, 'rgba(45,107,228,0.0)');
+    grad.addColorStop(0, 'rgba(184,151,74,0.1)');
+    grad.addColorStop(1, 'rgba(184,151,74,0.0)');
   }
   return grad;
 }
-
-const isMobile = window.innerWidth < 600;
 
 const valueChart = new Chart(ctx, {
   type: 'line',
@@ -245,19 +292,19 @@ const valueChart = new Chart(ctx, {
       {
         label: 'Portfolio',
         data: fullData,
-        borderColor: accentColor,
+        borderColor: portfolioColor,
         backgroundColor: makeGradient(),
         fill: true,
         borderWidth: 1.8,
         pointRadius: 0,
         pointHoverRadius: 4,
-        pointHoverBackgroundColor: accentColor,
+        pointHoverBackgroundColor: portfolioColor,
         tension: 0.25
       },
       {
         label: '^OMX',
         data: omxFull,
-        borderColor: '#C9A227',
+        borderColor: omxColor,
         borderDash: [4, 5],
         fill: false,
         pointRadius: 0,
@@ -267,7 +314,7 @@ const valueChart = new Chart(ctx, {
       {
         label: '^GSPC',
         data: gspcFull,
-        borderColor: '#B22222',
+        borderColor: gspcColor,
         borderDash: [2, 6],
         fill: false,
         pointRadius: 0,
@@ -279,6 +326,7 @@ const valueChart = new Chart(ctx, {
   options: {
     responsive: true,
     maintainAspectRatio: false,
+    events: [],
     interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: { display: false },
@@ -288,38 +336,28 @@ const valueChart = new Chart(ctx, {
         borderWidth: 1,
         titleColor: tooltipTitle,
         bodyColor: tooltipBody,
-        titleFont: { family: 'DM Mono, monospace', size: 11, weight: '400' },
-        bodyFont: { family: 'DM Mono, monospace', size: 11 },
-        padding: 12,
+        titleFont: { family: 'EB Garamond, Georgia, serif', size: 12, style: 'italic', weight: '400' },
+        bodyFont:  { family: 'EB Garamond, Georgia, serif', size: 12 },
+        padding: 14,
         callbacks: {
-          label: ctx =>
-            ` ${ctx.dataset.label}  ${Math.round(ctx.parsed.y).toLocaleString('sv-SE')} SEK`
+          label: c =>
+            ` ${c.dataset.label}  ${Math.round(c.parsed.y).toLocaleString('sv-SE')} SEK`
         }
       }
     },
     scales: {
       x: {
         grid: { color: gridColor, borderColor: 'transparent' },
-        afterBuildTicks(axis) {
-          if (window.innerWidth <= 600) {
-            const lastIdx = axis.chart.data.labels.length - 1;
-            if (axis.ticks.length && axis.ticks[axis.ticks.length - 1].value !== lastIdx) {
-              axis.ticks.push({ value: lastIdx });
-            }
-          }
-        },
         ticks: {
           color: textColor,
-          font: { family: 'DM Mono, monospace', size: 10 },
+          font: { family: 'EB Garamond, Georgia, serif', size: 11, style: 'italic' },
           maxRotation: window.innerWidth <= 600 ? 35 : 30,
           minRotation: window.innerWidth <= 600 ? 35 : 30,
-          align: window.innerWidth <= 600 ? 'start' : 'center',
           autoSkip: true,
-          maxTicksLimit: window.innerWidth <= 600 ? 10 : 10,
+          maxTicksLimit: 10,
           includeBounds: true,
-          callback: function(value, index, ticks) {
-            const currentLabels = this.chart.data.labels;
-            const label = currentLabels[value];
+          callback: function(value) {
+            const label = this.chart.data.labels[value];
             if (!label) return '';
             if (window.innerWidth <= 600) {
               const d = new Date(label);
@@ -327,14 +365,14 @@ const valueChart = new Chart(ctx, {
             }
             return label;
           }
-        },
+        }
       },
       y: {
         position: 'right',
         grid: { color: gridColor, borderColor: 'transparent' },
         ticks: {
           color: textColor,
-          font: { family: 'DM Mono, monospace', size: 10 },
+          font: { family: 'EB Garamond, Georgia, serif', size: 11 },
           callback: v => Math.round(v).toLocaleString('sv-SE')
         }
       }
@@ -342,46 +380,77 @@ const valueChart = new Chart(ctx, {
   }
 });
 
-/* ── Time range filter ── */
-function togglePast() {
-  const overflow = document.getElementById('past-overflow');
-  const chevron  = document.getElementById('past-chevron');
-  const label    = document.getElementById('past-toggle-label');
-  const isOpen   = overflow.classList.toggle('open');
-  chevron.classList.toggle('rotated', isOpen);
-  label.textContent = isOpen ? 'Show less' : 'Show all';
-}
+/* ── Press-and-hold tooltip ── */
+(function() {
+  const canvas = document.getElementById('valueChart');
+  let pressing = false;
 
+  function showTooltip(e) {
+    if (!pressing) return;
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+
+    const points = valueChart.getElementsAtEventForMode(
+      { offsetX: x, offsetY: y, native: e },
+      'index', { intersect: false }, true
+    );
+
+    if (points.length) {
+      valueChart.tooltip.setActiveElements(
+        valueChart.data.datasets.map((_, i) => ({ datasetIndex: i, index: points[0].index })),
+        { x, y }
+      );
+    } else {
+      valueChart.tooltip.setActiveElements([], {});
+    }
+    valueChart.update('none');
+  }
+
+  function hideTooltip() {
+    pressing = false;
+    valueChart.tooltip.setActiveElements([], {});
+    valueChart.update('none');
+  }
+
+  canvas.addEventListener('mousedown',  e => { pressing = true; showTooltip(e); });
+  canvas.addEventListener('mousemove',  e => { showTooltip(e); });
+  canvas.addEventListener('mouseup',    hideTooltip);
+  canvas.addEventListener('mouseleave', hideTooltip);
+
+  canvas.addEventListener('touchstart', e => { e.preventDefault(); pressing = true; showTooltip(e); }, { passive: false });
+  canvas.addEventListener('touchmove',  e => { e.preventDefault(); showTooltip(e); }, { passive: false });
+  canvas.addEventListener('touchend',   hideTooltip);
+})();
+
+/* Time range */
 function setTimeRange(range, btn) {
-  /* Active button state */
   document.querySelectorAll('.button-container button').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
 
   const now = new Date();
-  let fromDate;
-  if (range === '1m')       fromDate = new Date(now.getFullYear(), now.getMonth()-1, now.getDate());
-  else if (range === '3m')  fromDate = new Date(now.getFullYear(), now.getMonth()-3, now.getDate());
-  else if (range === '1y')  fromDate = new Date(now.getFullYear()-1, now.getMonth(), now.getDate());
-  else if (range === 'ytd') fromDate = new Date(now.getFullYear(), 0, 1);
-  else                      fromDate = new Date('1970-01-01');
+  let from;
+  if      (range === '1m')  from = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+  else if (range === '3m')  from = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+  else if (range === '1y')  from = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+  else if (range === 'ytd') from = new Date(now.getFullYear(), 0, 1);
+  else                      from = new Date('1970-01-01');
 
   const fl=[], fp=[], fo=[], fg=[];
   fullLabels.forEach((l, i) => {
-    if (new Date(l) >= fromDate) {
-      fl.push(l); fp.push(fullData[i]); fo.push(omxFull[i]); fg.push(gspcFull[i]);
-    }
+    if (new Date(l) >= from) { fl.push(l); fp.push(fullData[i]); fo.push(omxFull[i]); fg.push(gspcFull[i]); }
   });
 
-  if (fp.length === 0) return;
+  if (!fp.length) return;
 
-  /* Rebase comparisons to portfolio start value in this range */
-  const base = fp[0], omxBase = fo[0], gspcBase = fg[0];
-  const rebasedOMX  = fo.map(v => v * (base / omxBase));
-  const rebasedGSPC = fg.map(v => v * (base / gspcBase));
+  const base = fp[0];
+  const rebasedOMX  = fo.map(v => v * (base / fo[0]));
+  const rebasedGSPC = fg.map(v => v * (base / fg[0]));
 
   const combined = [...fp, ...rebasedOMX, ...rebasedGSPC];
-  const minY = Math.min(...combined);
-  const maxY = Math.max(...combined);
+  const minY = Math.min(...combined), maxY = Math.max(...combined);
   const pad  = (maxY - minY) * 0.06;
 
   valueChart.options.scales.y.min = Math.floor((minY - pad) / 1000) * 1000;
@@ -391,6 +460,16 @@ function setTimeRange(range, btn) {
   valueChart.data.datasets[1].data = rebasedOMX;
   valueChart.data.datasets[2].data = rebasedGSPC;
   valueChart.update();
+}
+
+/* Prior positions toggle */
+function togglePast() {
+  const overflow = document.getElementById('past-overflow');
+  const chevron  = document.getElementById('past-chevron');
+  const label    = document.getElementById('past-toggle-label');
+  const isOpen   = overflow.classList.toggle('open');
+  chevron.classList.toggle('rotated', isOpen);
+  label.textContent = isOpen ? 'Show less' : 'Show all';
 }
 </script>
 </body>
