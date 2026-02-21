@@ -1,0 +1,9 @@
+User-agent: *
+Disallow: /admin
+Disallow: /cache
+Disallow: /increment
+Disallow: /reset_db
+Disallow: /returns
+
+Allow: /
+Allow: /reports

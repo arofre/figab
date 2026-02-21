@@ -15,7 +15,6 @@ import json
 import bisect
 from FinTrack import FinTrack, Config
 from dateutil.relativedelta import relativedelta
-import threading
 from flask import jsonify
 import sqlite3
 import gc
@@ -399,6 +398,10 @@ def reset_database(user_id=None):
 
 @app.route("/returns")
 def returns():
+    auth = request.authorization
+    if not auth or not check_auth(auth.username, auth.password):
+        return authenticate()
+    
     return portfolio_tracker.print_stock_returns(
                 from_date=datetime.date(2026, 1, 23),
                 to_date=datetime.date.today()

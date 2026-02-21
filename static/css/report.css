@@ -1,8 +1,3 @@
-/* ═══════════════════════════════════════════════════════
-   FIGAB CAPITAL PARTNERS — report.css
-   Forest Green · Antique Gold · Full Serif
-   ═══════════════════════════════════════════════════════ */
-
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,600&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Cormorant+SC:wght@300;400;500;600&display=swap');
 
 /* ── LIGHT MODE ── */
@@ -78,6 +73,7 @@ header {
   top: 2px;
   z-index: 100;
   box-shadow: 0 1px 0 rgba(184,151,74,0.2), var(--shadow-sm);
+  overflow: hidden;
 }
 
 .header-inner {
@@ -87,6 +83,7 @@ header {
   display: flex;
   align-items: stretch;
   height: 64px;
+  overflow: hidden;
 }
 
 .logo-block {
@@ -148,7 +145,8 @@ header {
   letter-spacing: 0.04em;
 }
 
-#menu { display: flex; align-items: center; }
+/* Nav — pushed to the right */
+#menu { display: flex; align-items: center; margin-left: auto; }
 #menu ul { display: flex; list-style: none; height: 100%; }
 #menu ul li { display: flex; }
 
@@ -497,7 +495,7 @@ footer {
 ::-webkit-scrollbar-thumb:hover { background: var(--gold-dim); }
 
 /* ═══════════════════
-   RESPONSIVE
+   RESPONSIVE — TABLET
    ═══════════════════ */
 @media (max-width: 1024px) {
   main { padding: 0 20px 60px; }
@@ -510,12 +508,24 @@ footer {
   .footer-meta { text-align: left; }
 }
 
+/* ═══════════════════
+   RESPONSIVE — MOBILE
+   ═══════════════════ */
 @media (max-width: 600px) {
-  .header-inner { height: 56px; padding: 0 16px; }
+  .header-inner { height: 56px; padding: 0 16px; overflow: hidden; }
+
+  /* Hide wordmark text — logo mark stays, nav always visible pinned right */
+  .logo-wordmark { display: none; }
+  .logo-block {
+    border-right: none;
+    padding-right: 0;
+    margin-right: 0;
+  }
   .logo-mark { width: 32px; height: 32px; }
   .logo-mark-letters { font-size: 0.7rem; }
-  .logo-name { font-size: 0.72rem; }
+
   #menu a { padding: 0 14px; font-size: 0.66rem; height: 56px; }
+
   .page-title-inner { padding: 0 16px; height: 48px; }
   .page-title-cell { padding-right: 16px; margin-right: 16px; }
   .folder-num { min-width: 44px; padding: 0 14px; }
