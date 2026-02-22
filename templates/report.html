@@ -17,18 +17,18 @@
 ══════════════════════════════════════ -->
 <header>
   <div class="header-inner">
-    <div class="logo-block">
-      <div class="logo-mark">
-        <span class="logo-mark-letters">FCP</span>
-      </div>
-      <div class="logo-wordmark">
-        <span class="logo-name">Figab Capital</span>
-      </div>
-    </div>
+      <a href="/" class="logo-block">
+        <div class="logo-mark">
+          <span class="logo-mark-letters">FCP</span>
+        </div>
+        <div class="logo-wordmark">
+          <span class="logo-name">Figab Capital Partners</span>
+        </div>
+      </a>
     <nav id="menu">
       <ul>
-        <li><a href="/">Home</a></li>
-        <li><a href="/reports">Reports</a></li>
+        <li><a href="/" class="{{ 'nav-active' if request.path == '/' else '' }}">Home</a></li>
+        <li><a href="/reports" class="{{ 'nav-active' if request.path.startswith('/reports') else '' }}">Reports</a></li>
       </ul>
     </nav>
   </div>

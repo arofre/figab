@@ -41,9 +41,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { -webkit-text-size-adjust: 100%; }
 
-html, body {
-  height: 100%;
-}
+
 
 body {
   font-family: 'EB Garamond', Georgia, serif;
@@ -182,6 +180,12 @@ header {
 #menu a:hover { color: var(--gold-lt); background: rgba(184,151,74,0.06); }
 #menu a:hover::after { transform: scaleX(1); }
 
+#menu a.nav-active {
+  color: var(--gold-lt);
+  background: rgba(184,151,74,0.06);
+}
+#menu a.nav-active::after { transform: scaleX(1); }
+
 /* ═══════════════════
    PAGE TITLE BAR
    ═══════════════════ */
@@ -189,6 +193,9 @@ header {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
+  position: sticky; 
+  top: 66px;  
+  z-index: 99; 
 }
 
 .page-title-inner {
@@ -239,8 +246,9 @@ header {
 main {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 0 40px 80px;
+  padding: 40px 40px 80px;
   flex: 1;
+  
 }
 
 /* ═══════════════════
@@ -498,7 +506,7 @@ footer {
    RESPONSIVE — TABLET
    ═══════════════════ */
 @media (max-width: 1024px) {
-  main { padding: 0 20px 60px; }
+  main { padding: 40px 20px 60px; }
   footer { padding: 28px 20px; }
   .header-inner { padding: 0 20px; }
   .page-title-inner { padding: 0 20px; }
@@ -507,6 +515,7 @@ footer {
   .footer-contact { grid-column: 1 / -1; order: -1; }
   .footer-meta { text-align: left; }
 }
+
 
 /* ═══════════════════
    RESPONSIVE — MOBILE
@@ -528,10 +537,11 @@ footer {
 
   .page-title-inner { padding: 0 16px; height: 48px; }
   .page-title-cell { padding-right: 16px; margin-right: 16px; }
+  .page-title-bar {top: 58px}
   .folder-num { min-width: 44px; padding: 0 14px; }
   .report-list li::before { left: 44px; }
   .report-index { width: 44px; }
-  main { padding: 0 0 60px; }
+  main { padding: 40px 0 60px; }
   footer { padding: 24px 16px; }
   .footer-inner { grid-template-columns: 1fr; gap: 12px; }
   .footer-contact { align-items: flex-start; }

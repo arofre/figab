@@ -202,6 +202,12 @@ header {
 #menu a:hover { color: var(--gold-lt); background: rgba(184,151,74,0.06); }
 #menu a:hover::after { transform: scaleX(1); }
 
+#menu a.nav-active {
+  color: var(--gold-lt);
+  background: rgba(184,151,74,0.06);
+}
+#menu a.nav-active::after { transform: scaleX(1); }
+
 /* Status dot */
 .header-status {
   display: flex;
