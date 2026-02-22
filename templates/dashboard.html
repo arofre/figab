@@ -1,67 +1,34 @@
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Figab Capital Partners</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='css/portfolio.css') }}">
-<link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/portfolio.css') }}" />
+{% endblock %}
+
+{% block head_scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/dist/date-fns.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-</head>
-<body>
+{% endblock %}
 
-<div class="accent-bar"></div>
 
-<!-- ══════════════════════════════════════
-     NAVIGATION
-══════════════════════════════════════ -->
-<header>
-  <div class="header-inner">
-    
-    <a href="/" class="logo-block">
-      <div class="logo-mark">
-        <span class="logo-mark-letters">FCP</span>
-      </div>
-      <div class="logo-wordmark">
-        <span class="logo-name">Figab Capital Partners</span>
-      </div>
-    </a>
-    <nav id="menu">
-      <ul>
-        <li><a href="/" class="{{ 'nav-active' if request.path == '/' else '' }}">Home</a></li>
-        <li><a href="/reports" class="{{ 'nav-active' if request.path.startswith('/reports') else '' }}">Reports</a></li>
-      </ul>
-    </nav>
-    <div class="header-status">
-    </div>
-  </div>
-</header>
+{% block body %}
 
 <!-- ══════════════════════════════════════
      HERO
 ══════════════════════════════════════ -->
 <section class="hero">
   <div class="hero-ring-inner"></div>
-
   <div class="hero-content">
     <div class="hero-mark">
       <span class="hero-mark-letters">FCP</span>
     </div>
-
-
     <div class="hero-name">Figab Capital Partners</div>
-
     <div class="hero-rule"></div>
-
     <div class="hero-tagline">
       Generating <em>alpha</em> since 2025.
     </div>
-
     <div class="hero-tagline-sub">Est. 2025 · Göteborg</div>
-
     <a href="#performance" class="hero-scroll-btn">
       <span class="hero-scroll-label">Portfolio</span>
       <div class="hero-scroll-chevron">
@@ -71,7 +38,6 @@
       </div>
     </a>
   </div>
-
   <span class="hero-est">Est. 2025</span>
   <span class="hero-location">Göteborg · Sweden</span>
 </section>
@@ -116,9 +82,7 @@
     <div class="pct-cell">
       <span class="p-label">{{ key }}</span>
       <span class="p-val {% if value is not none and value >= 0 %}positive{% else %}negative{% endif %}">
-        {% if value is not none %}
-          {{ "%+.2f"|format(value) }}%
-        {% else %}N/A{% endif %}
+        {% if value is not none %}{{ "%+.2f"|format(value) }}%{% else %}N/A{% endif %}
       </span>
     </div>
     {% endfor %}
@@ -148,11 +112,11 @@
         Portfolio
       </div>
       <div class="legend-item">
-        <div class="legend-line" style="background: rgba(168,196,176,0.6); border-top: 1px dashed rgba(168,196,176,0.5); height:0; margin-top:1px;"></div>
+        <div class="legend-line" style="background: transparent; border-top: 1px dashed rgba(35,72,192,0.5); height:0; margin-top:1px;"></div>
         OMXS30
       </div>
       <div class="legend-item">
-        <div class="legend-line" style="background: transparent; border-top: 1px dashed rgba(122,126,116,0.4); height:0; margin-top:1px;"></div>
+        <div class="legend-line" style="background: transparent; border-top: 1px dashed rgba(202,15,15,0.5); height:0; margin-top:1px;"></div>
         S&P500
       </div>
     </div>
@@ -236,34 +200,22 @@
 
 </div><!-- /performance -->
 
-<!-- ══════════════════════════════════════
-     FOOTER
-══════════════════════════════════════ -->
-<footer>
-  <div class="footer-inner">
-    <span class="footer-brand">Figab Capital Partners</span>
-    <div class="footer-contact">
-      <span class="footer-contact-label">Contact</span>
-      <a href="mailto:kontakt@figab.se">kontakt@figab.se</a>
-    </div>
-    <span class="footer-meta"> Est. 2025</span>
-  </div>
-</footer>
+{% endblock %}
 
-
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+{% block body_scripts %}
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script>
+<script>
 const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-/* Palette */
 
 const portfolioColor = '#B8974A';
-const omxColor       = isDark ? 'rgba(35,72,192,0.5)' : 'rgba(35,72,192,0.5)';
-const gspcColor      = isDark ? 'rgba(202,15,15,0.5)'  : 'rgba(202,15,15,0.5)';
-const gridColor      = isDark ? 'rgba(31,52,38,0.8)'     : 'rgba(221,216,204,0.8)';
-const textColor      = isDark ? '#4A6054'                 : '#7A7E74';
-const tooltipBg      = isDark ? '#111F16'                 : '#FDFAF5';
-const tooltipBorder  = isDark ? '#1F3426'                 : '#DDD8CC';
-const tooltipTitle   = isDark ? '#D4B06A'                 : '#B8974A';
-const tooltipBody    = isDark ? '#A8B5A0'                 : '#3C4038';
+const omxColor       = 'rgba(35,72,192,0.5)';
+const gspcColor      = 'rgba(202,15,15,0.5)';
+const gridColor      = isDark ? 'rgba(31,52,38,0.8)'   : 'rgba(221,216,204,0.8)';
+const textColor      = isDark ? '#4A6054'               : '#7A7E74';
+const tooltipBg      = isDark ? '#111F16'               : '#FDFAF5';
+const tooltipBorder  = isDark ? '#1F3426'               : '#DDD8CC';
+const tooltipTitle   = isDark ? '#D4B06A'               : '#B8974A';
+const tooltipBody    = isDark ? '#A8B5A0'               : '#3C4038';
 
 const fullLabels = {{ line_labels | tojson }};
 const fullData   = {{ line_data   | tojson }};
@@ -275,13 +227,8 @@ const ctx = document.getElementById('valueChart').getContext('2d');
 function makeGradient() {
   const h = ctx.canvas.clientHeight || 320;
   const grad = ctx.createLinearGradient(0, 0, 0, h);
-  if (isDark) {
-    grad.addColorStop(0, 'rgba(184,151,74,0.14)');
-    grad.addColorStop(1, 'rgba(184,151,74,0.0)');
-  } else {
-    grad.addColorStop(0, 'rgba(184,151,74,0.1)');
-    grad.addColorStop(1, 'rgba(184,151,74,0.0)');
-  }
+  grad.addColorStop(0, isDark ? 'rgba(184,151,74,0.14)' : 'rgba(184,151,74,0.1)');
+  grad.addColorStop(1, 'rgba(184,151,74,0.0)');
   return grad;
 }
 
@@ -327,7 +274,7 @@ const valueChart = new Chart(ctx, {
   options: {
     responsive: true,
     maintainAspectRatio: false,
-    events: ['mousemove', 'mouseout', 'click', 'touchstart', 'touchmove'],   
+    events: ['mousemove', 'mouseout', 'click', 'touchstart', 'touchmove'],
     interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: { display: true },
@@ -341,8 +288,7 @@ const valueChart = new Chart(ctx, {
         bodyFont:  { family: 'EB Garamond, Georgia, serif', size: 12 },
         padding: 14,
         callbacks: {
-          label: c =>
-            ` ${c.dataset.label}  ${Math.round(c.parsed.y).toLocaleString('sv-SE')} SEK`
+          label: c => ` ${c.dataset.label}  ${Math.round(c.parsed.y).toLocaleString('sv-SE')} SEK`
         }
       }
     },
@@ -381,9 +327,6 @@ const valueChart = new Chart(ctx, {
   }
 });
 
-
-
-/* Time range */
 function setTimeRange(range, btn) {
   document.querySelectorAll('.button-container button').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
@@ -403,7 +346,7 @@ function setTimeRange(range, btn) {
 
   if (!fp.length) return;
 
-  const base = fp[0];
+  const base        = fp[0];
   const rebasedOMX  = fo.map(v => v * (base / fo[0]));
   const rebasedGSPC = fg.map(v => v * (base / fg[0]));
 
@@ -420,7 +363,6 @@ function setTimeRange(range, btn) {
   valueChart.update();
 }
 
-/* Prior positions toggle */
 function togglePast() {
   const overflow = document.getElementById('past-overflow');
   const chevron  = document.getElementById('past-chevron');
@@ -430,5 +372,4 @@ function togglePast() {
   label.textContent = isOpen ? 'Show less' : 'Show all';
 }
 </script>
-</body>
-</html>
+{% endblock %}

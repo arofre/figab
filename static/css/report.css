@@ -1,234 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,600&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Cormorant+SC:wght@300;400;500;600&display=swap');
+/* ═══════════════════════════════════════════════════════
+   FIGAB CAPITAL PARTNERS — report.css
+   Page-specific styles for the reports page
+   ═══════════════════════════════════════════════════════ */
 
-/* ── LIGHT MODE ── */
-:root {
-  --forest:      #1C3829;
-  --grove:       #2A5240;
-  --fern:        #3D6B52;
-  --gold:        #B8974A;
-  --gold-lt:     #D4B06A;
-  --gold-dim:    rgba(184,151,74,0.25);
-
-  --bg:          #F0EBE0;
-  --surface:     #FDFAF5;
-  --surface-2:   #F4EFE6;
-  --border:      #DDD8CC;
-  --border-hi:   #C8C2B4;
-
-  --text:        #1A1C18;
-  --text-dim:    #3C4038;
-  --text-faint:  #7A7E74;
-
-  --shadow-sm:   0 1px 4px rgba(28,56,41,0.08);
-}
-
-/* ── DARK MODE ── */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg:          #0B1910;
-    --surface:     #111F16;
-    --surface-2:   #172B1C;
-    --border:      #1F3426;
-    --border-hi:   #2A4534;
-    --text:        #EDE8DF;
-    --text-dim:    #A8B5A0;
-    --text-faint:  #4A6054;
-    --shadow-sm:   0 1px 4px rgba(0,0,0,0.35);
-  }
-}
-
-/* ── RESET ── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { -webkit-text-size-adjust: 100%; }
-
-
-
-body {
-  font-family: 'EB Garamond', Georgia, serif;
-  background: var(--bg);
-  color: var(--text);
-  min-height: 100vh;
-  -webkit-font-smoothing: antialiased;
-  display: flex;
-  flex-direction: column;
-}
-
-/* ── GOLD ACCENT LINE ── */
-.accent-bar {
-  height: 2px;
-  background: linear-gradient(90deg, var(--forest) 0%, var(--gold) 40%, var(--gold-lt) 70%, transparent 100%);
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  z-index: 300;
-}
-
-/* ═══════════════════
-   HEADER
-   ═══════════════════ */
-header {
-  background: var(--forest);
-  position: sticky;
-  top: 2px;
-  z-index: 100;
-  box-shadow: 0 1px 0 rgba(184,151,74,0.2), var(--shadow-sm);
-  overflow: hidden;
-}
-
-.header-inner {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 0 40px;
-  display: flex;
-  align-items: stretch;
-  height: 64px;
-  overflow: hidden;
-}
-
-.logo-block {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding-right: 28px;
-  border-right: 1px solid rgba(184,151,74,0.18);
-  margin-right: 28px;
-  flex-shrink: 0;
-}
-
-.logo-mark {
-  width: 38px; height: 38px;
-  border-radius: 50%;
-  border: 1px solid rgba(184,151,74,0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  flex-shrink: 0;
-}
-
-.logo-mark::before {
-  content: '';
-  position: absolute;
-  inset: 4px;
-  border: 0.5px solid rgba(184,151,74,0.2);
-  border-radius: 50%;
-}
-
-.logo-mark-letters {
-  font-family: 'Playfair Display', serif;
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: var(--gold);
-  line-height: 1;
-  position: relative;
-  z-index: 1;
-  letter-spacing: -0.02em;
-}
-
-.logo-wordmark { display: flex; flex-direction: column; gap: 1px; }
-
-.logo-name {
-  font-family: 'Cormorant SC', serif;
-  font-size: 0.82rem;
-  font-weight: 500;
-  letter-spacing: 0.2em;
-  color: rgba(237,232,223,0.9);
-  line-height: 1;
-}
-
-.logo-sub {
-  font-family: 'EB Garamond', serif;
-  font-style: italic;
-  font-size: 0.68rem;
-  color: rgba(184,151,74,0.6);
-  letter-spacing: 0.04em;
-}
-
-/* Nav — pushed to the right */
-#menu { display: flex; align-items: center; margin-left: auto; }
-#menu ul { display: flex; list-style: none; height: 100%; }
-#menu ul li { display: flex; }
-
-#menu a {
-  display: flex;
-  align-items: center;
-  height: 64px;
-  padding: 0 22px;
-  font-family: 'Cormorant SC', serif;
-  font-size: 0.72rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: rgba(237,232,223,0.5);
-  text-decoration: none;
-  border-right: 1px solid rgba(184,151,74,0.1);
-  transition: color 0.2s, background 0.2s;
-  position: relative;
-}
-
-#menu ul li:first-child a { border-left: 1px solid rgba(184,151,74,0.1); }
-
-#menu a::after {
-  content: '';
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, var(--gold), var(--gold-lt));
-  transform: scaleX(0);
-  transition: transform 0.3s ease;
-  transform-origin: left;
-}
-
-#menu a:hover { color: var(--gold-lt); background: rgba(184,151,74,0.06); }
-#menu a:hover::after { transform: scaleX(1); }
-
-#menu a.nav-active {
-  color: var(--gold-lt);
-  background: rgba(184,151,74,0.06);
-}
-#menu a.nav-active::after { transform: scaleX(1); }
-
-/* ═══════════════════
-   PAGE TITLE BAR
-   ═══════════════════ */
 .page-title-bar {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
-  position: sticky; 
-  top: 66px;  
-  z-index: 99; 
-}
-
-.page-title-inner {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 0 40px;
-  display: flex;
-  align-items: stretch;
-  height: 56px;
-}
-
-.page-title-cell {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  border-right: 1px solid var(--border);
-  padding-right: 28px;
-  margin-right: 28px;
-}
-
-.page-eyebrow {
-  font-family: 'EB Garamond', serif;
-  font-style: italic;
-  font-size: 0.82rem;
-  color: var(--text-faint);
-}
-
-.page-title-cell h1 {
-  font-family: 'Playfair Display', serif;
-  font-size: 1.1rem;
-  font-weight: 500;
-  color: var(--text);
-  letter-spacing: -0.01em;
+  position: sticky;
+  top: 66px;
+  z-index: 99;
 }
 
 .page-count {
@@ -240,15 +18,11 @@ header {
   align-self: center;
 }
 
-/* ═══════════════════
-   MAIN
-   ═══════════════════ */
 main {
   max-width: 1400px;
   margin: 0 auto;
   padding: 40px 40px 80px;
   flex: 1;
-  
 }
 
 /* ═══════════════════
@@ -259,13 +33,9 @@ main {
   border: 1px solid var(--border);
   border-top: none;
   box-shadow: var(--shadow-sm);
-  transition: box-shadow 0.2s;
 }
 
-.report-folder:first-child {
-  border-top: 1px solid var(--border);
-  margin-top: 0;
-}
+.report-folder:first-child { border-top: 1px solid var(--border); margin-top: 0; }
 
 .folder-header {
   display: flex;
@@ -435,115 +205,16 @@ main {
 }
 
 /* ═══════════════════
-   FOOTER
-   ═══════════════════ */
-footer {
-  background: var(--forest);
-  border-top: 1px solid rgba(184,151,74,0.15);
-  padding: 32px 40px;
-  margin-top: auto;
-}
-
-.footer-inner {
-  max-width: 1400px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 20px;
-}
-
-.footer-brand {
-  font-family: 'Cormorant SC', serif;
-  font-size: 0.72rem;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  color: var(--gold);
-  opacity: 0.75;
-}
-
-.footer-contact {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.footer-contact-label {
-  font-family: 'Cormorant SC', serif;
-  font-size: 0.56rem;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: rgba(237,232,223,0.25);
-}
-
-.footer-contact a {
-  font-family: 'EB Garamond', serif;
-  font-style: italic;
-  font-size: 0.95rem;
-  color: rgba(184,151,74,0.65);
-  text-decoration: none;
-  transition: color 0.2s;
-}
-
-.footer-contact a:hover { color: var(--gold-lt); }
-
-.footer-meta {
-  font-family: 'EB Garamond', serif;
-  font-style: italic;
-  font-size: 0.78rem;
-  color: rgba(237,232,223,0.2);
-  text-align: right;
-}
-
-/* ── SCROLLBAR ── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--gold-dim); }
-
-/* ═══════════════════
-   RESPONSIVE — TABLET
+   RESPONSIVE
    ═══════════════════ */
 @media (max-width: 1024px) {
   main { padding: 40px 20px 60px; }
-  footer { padding: 28px 20px; }
-  .header-inner { padding: 0 20px; }
-  .page-title-inner { padding: 0 20px; }
-  .logo-sub { display: none; }
-  .footer-inner { grid-template-columns: 1fr 1fr; }
-  .footer-contact { grid-column: 1 / -1; order: -1; }
-  .footer-meta { text-align: left; }
 }
 
-
-/* ═══════════════════
-   RESPONSIVE — MOBILE
-   ═══════════════════ */
-@media (max-width: 600px) {
-  .header-inner { height: 56px; padding: 0 16px; overflow: hidden; }
-
-  /* Hide wordmark text — logo mark stays, nav always visible pinned right */
-  .logo-wordmark { display: none; }
-  .logo-block {
-    border-right: none;
-    padding-right: 0;
-    margin-right: 0;
-  }
-  .logo-mark { width: 32px; height: 32px; }
-  .logo-mark-letters { font-size: 0.7rem; }
-
-  #menu a { padding: 0 14px; font-size: 0.66rem; height: 56px; }
-
-  .page-title-inner { padding: 0 16px; height: 48px; }
-  .page-title-cell { padding-right: 16px; margin-right: 16px; }
-  .page-title-bar {top: 58px}
+@media (max-width: 640px) {
+  .page-title-bar { top: 58px; }
+  main { padding: 40px 0 60px; }
   .folder-num { min-width: 44px; padding: 0 14px; }
   .report-list li::before { left: 44px; }
   .report-index { width: 44px; }
-  main { padding: 40px 0 60px; }
-  footer { padding: 24px 16px; }
-  .footer-inner { grid-template-columns: 1fr; gap: 12px; }
-  .footer-contact { align-items: flex-start; }
-  .footer-meta { text-align: left; }
 }

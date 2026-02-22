@@ -1,40 +1,13 @@
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Figab Capital Partners — Reports</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='css/report.css') }}">
-<link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
-</head>
-<body>
+{% extends "base.html" %}
 
-<div class="accent-bar"></div>
+{% block title %}Figab Capital Partners — Reports{% endblock %}
 
-<!-- ══════════════════════════════════════
-     NAVIGATION
-══════════════════════════════════════ -->
-<header>
-  <div class="header-inner">
-      <a href="/" class="logo-block">
-        <div class="logo-mark">
-          <span class="logo-mark-letters">FCP</span>
-        </div>
-        <div class="logo-wordmark">
-          <span class="logo-name">Figab Capital Partners</span>
-        </div>
-      </a>
-    <nav id="menu">
-      <ul>
-        <li><a href="/" class="{{ 'nav-active' if request.path == '/' else '' }}">Home</a></li>
-        <li><a href="/reports" class="{{ 'nav-active' if request.path.startswith('/reports') else '' }}">Reports</a></li>
-      </ul>
-    </nav>
-  </div>
-</header>
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/report.css') }}" />
+{% endblock %}
 
-<!-- Page title bar -->
+{% block page_title_bar %}
 <div class="page-title-bar">
   <div class="page-title-inner">
     <div class="page-title-cell">
@@ -52,7 +25,9 @@
     </span>
   </div>
 </div>
+{% endblock %}
 
+{% block body %}
 <main>
 
   {% set folder_order = report_folders + (['Other'] if 'Other' in reports_data else []) %}
@@ -99,21 +74,11 @@
   {% endfor %}
 
 </main>
+{% endblock %}
 
-<!-- ══════════════════════════════════════
-     FOOTER
-══════════════════════════════════════ -->
-<footer>
-  <div class="footer-inner">
-    <span class="footer-brand">Figab Capital Partners</span>
-    <div class="footer-contact">
-      <span class="footer-contact-label">Contact</span>
-      <a href="mailto:kontakt@figab.se">kontakt@figab.se</a>
-    </div>
-    <span class="footer-meta">Est. 2025</span>
-  </div>
-</footer>
+{% block footer_meta %}Est. 2025{% endblock %}
 
+{% block body_scripts %}
 <script>
 function toggleFolder(header) {
   header.classList.toggle('active');
@@ -125,6 +90,4 @@ document.addEventListener('DOMContentLoaded', () => {
   if (first) first.classList.add('active');
 });
 </script>
-
-</body>
-</html>
+{% endblock %}

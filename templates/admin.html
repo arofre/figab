@@ -1,34 +1,13 @@
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Figab Capital Partners — Admin</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
-  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
-</head>
-<body>
+{% extends "base.html" %}
 
-<div class="accent-bar"></div>
+{% block title %}Figab Capital Partners — Admin{% endblock %}
 
-<header>
-  <div class="header-inner">
-    <div class="logo-block">
-      <span class="logo-monogram">FCP</span>
-      <div class="logo-divider"></div>
-      <div class="logo-full">Figab Capital<br>Partners</div>
-    </div>
-    <nav id="menu">
-      <ul>
-        <li><a href="/">Home</a></li>
-        <li><a href="/reports">Reports</a></li>
-      </ul>
-    </nav>
-  </div>
-</header>
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
+{% endblock %}
 
-<!-- Page title bar -->
+{% block page_title_bar %}
 <div class="page-title-bar">
   <div class="page-title-inner">
     <div class="page-title-cell">
@@ -38,7 +17,9 @@
     <span class="admin-badge">Authenticated</span>
   </div>
 </div>
+{% endblock %}
 
+{% block body %}
 <main>
 
   {% with messages = get_flashed_messages() %}
@@ -151,7 +132,7 @@
   </section>
 
   <!-- ══════════════════════════════════
-       03 · REPORTS
+       03 · UPLOAD REPORT
        ══════════════════════════════════ -->
   <section class="admin-section">
     <div class="section-header">
@@ -257,16 +238,13 @@
   </section>
 
 </main>
+{% endblock %}
 
-<footer>
-  <div class="footer-inner">
-    <span class="footer-brand">Figab Capital Partners</span>
-    <span class="footer-meta">Admin Interface &nbsp;·&nbsp; Restricted Access</span>
-  </div>
-</footer>
+{% block footer_center %}{% endblock %}
+{% block footer_meta %}Admin Interface &nbsp;·&nbsp; Restricted Access{% endblock %}
 
+{% block body_scripts %}
 <script>
-/* ── Filter & sort ── */
 let sortCol = -1, sortAsc = true;
 
 function filterTable() {
@@ -292,12 +270,8 @@ function sortTable(colIdx) {
   const rows  = Array.from(tbody.querySelectorAll('tr'));
   const ths   = document.querySelectorAll('#tx-table thead th');
 
-  if (sortCol === colIdx) {
-    sortAsc = !sortAsc;
-  } else {
-    sortCol = colIdx;
-    sortAsc = true;
-  }
+  sortAsc = (sortCol === colIdx) ? !sortAsc : true;
+  sortCol = colIdx;
 
   ths.forEach((th, i) => {
     th.classList.toggle('sorted', i === colIdx);
@@ -310,19 +284,13 @@ function sortTable(colIdx) {
     const bv = b.querySelectorAll('td')[colIdx]?.textContent.trim() ?? '';
     const an = parseFloat(av.replace(/[^0-9.-]/g, ''));
     const bn = parseFloat(bv.replace(/[^0-9.-]/g, ''));
-    let cmp;
-    if (!isNaN(an) && !isNaN(bn)) {
-      cmp = an - bn;
-    } else {
-      cmp = av.localeCompare(bv);
-    }
+    const cmp = (!isNaN(an) && !isNaN(bn)) ? (an - bn) : av.localeCompare(bv);
     return sortAsc ? cmp : -cmp;
   });
 
   rows.forEach(r => tbody.appendChild(r));
 }
 
-/* Set today as default date */
 document.addEventListener('DOMContentLoaded', () => {
   const dateInput = document.getElementById('date');
   if (dateInput && !dateInput.value) {
@@ -330,6 +298,4 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 </script>
-
-</body>
-</html>
+{% endblock %}

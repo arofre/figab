@@ -1,0 +1,57 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Figab Capital Partners{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}" />
+  {% block extra_css %}{% endblock %}
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}" />
+  {% block head_scripts %}{% endblock %}
+</head>
+<body>
+
+<div class="accent-bar"></div>
+
+<header>
+  <div class="header-inner">
+    <a href="/" class="logo-block">
+      <div class="logo-mark">
+        <span class="logo-mark-letters">FCP</span>
+      </div>
+      <div class="logo-wordmark">
+        <span class="logo-name">Figab Capital Partners</span>
+      </div>
+    </a>
+    <nav id="menu">
+      <ul>
+        <li><a href="/" class="{{ 'nav-active' if request.path == '/' else '' }}">Home</a></li>
+        <li><a href="/reports" class="{{ 'nav-active' if request.path.startswith('/reports') else '' }}">Reports</a></li>
+      </ul>
+    </nav>
+    {% block header_extra %}{% endblock %}
+  </div>
+</header>
+
+{% block page_title_bar %}{% endblock %}
+
+{% block body %}{% endblock %}
+
+<footer>
+  <div class="footer-inner">
+    <span class="footer-brand">Figab Capital Partners</span>
+    {% block footer_center %}
+    <div class="footer-contact">
+      <span class="footer-contact-label">Contact</span>
+      <a href="mailto:kontakt@figab.se">kontakt@figab.se</a>
+    </div>
+    {% endblock %}
+    <span class="footer-meta">{% block footer_meta %}Est. 2025{% endblock %}</span>
+  </div>
+</footer>
+
+{% block body_scripts %}{% endblock %}
+
+</body>
+</html>
