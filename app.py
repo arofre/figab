@@ -403,7 +403,7 @@ def returns():
         return authenticate()
     
     return portfolio_tracker.print_stock_returns(
-                from_date=datetime.date(2026, 1, 23),
+                from_date=datetime.date(2026, 2, 18),
                 to_date=datetime.date.today()
                 ).replace('\n', '<br>')
 
