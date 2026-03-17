@@ -315,11 +315,9 @@ def compute_dashboard_data_internal():
     today_date = datetime.date.today()
 
     data = portfolio_tracker.get_portfolio_value(datetime.date(2025,2,17),today_date)
-    value = list(data.values())
-
+    value = [v / 150000 for v in data.values()]
+    
     line_labels = [ts.strftime("%Y-%m-%d") for ts in data]
-
-    cash = portfolio_tracker.get_portfolio_cash(today_date)
 
     week_ago = data[today_date - relativedelta(weeks=1)]
     month_ago = data[today_date - relativedelta(months=1)]
@@ -336,8 +334,8 @@ def compute_dashboard_data_internal():
     y_max = max(value) * 1.05
     y_min = min(value) * 0.95
 
-    omx_data = list((np.array(portfolio_tracker.get_index_returns("^OMX", datetime.date(2025,2,17), today_date)) + 1 )* 150000)
-    gspc_data = list((np.array(portfolio_tracker.get_index_returns("^GSPC", datetime.date(2025,2,17), today_date)) + 1) * 150000)
+    omx_data = list(np.array(portfolio_tracker.get_index_returns("^OMX", datetime.date(2025,2,17), today_date)) + 1 )
+    gspc_data = list(np.array(portfolio_tracker.get_index_returns("^GSPC", datetime.date(2025,2,17), today_date)) + 1)
     current_holdings = portfolio_tracker.get_current_holdings()
     past_holdings = portfolio_tracker.get_past_holdings()
 
@@ -349,10 +347,24 @@ def compute_dashboard_data_internal():
     for _ in range(diff_gspc):
         gspc_data.append(gspc_data[-1])
 
+    portfolio_returns = np.diff(value) / value[:-1]
+
+    sharpe = sharpe_ratio(value)
+
+    portfolio_returns = np.diff(value) / value[:-1]
+    benchmark_returns = np.diff(omx_data) / omx_data[:-1]
+
+    min_len = min(len(portfolio_returns), len(benchmark_returns))
+    portfolio_returns = portfolio_returns[:min_len]
+    benchmark_returns = benchmark_returns[:min_len]
+
+    beta = np.cov(portfolio_returns, benchmark_returns)[0, 1] / np.var(benchmark_returns)
+
+    alpha = (np.mean(portfolio_returns) - beta * np.mean(benchmark_returns)) * 252 * 100
+
     cache_file = os.path.join(app.root_path, "static", "dashboard_cache.json")
     with open(cache_file, "w") as f:
         json.dump({
-            "latest_value": round(value[-1], 2),
             "pct_changes": pct_changes,
             "line_labels": line_labels,
             "line_data": value,
@@ -360,9 +372,10 @@ def compute_dashboard_data_internal():
             "gspc_data": gspc_data,
             "y_max": y_max,
             "y_min": y_min,
-            "cash": round(cash, 0),
             "current": current_holdings,
             "past": past_holdings,
+            "sharpe": sharpe,
+            "alpha": alpha,
             }, f)
 
     print("Dashboard cache updated.")

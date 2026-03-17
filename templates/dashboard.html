@@ -55,24 +55,29 @@
   <!-- Metrics Bar -->
   <div class="metrics-bar">
     <div class="metric-cell">
-      <div class="m-key">Portfolio Value</div>
-      <div class="m-val">{{ "{:,.0f}".format(latest_value) }}<span class="currency">TSEK</span></div>
-      <div class="m-sub">Total market value</div>
-    </div>
-    <div class="metric-cell">
-      <div class="m-key">Cash Position</div>
-      <div class="m-val">{{ "{:,.0f}".format(cash) }}<span class="currency">TSEK</span></div>
-      <div class="m-sub">Available liquidity</div>
+      <div class="m-key">Fund Inception</div>
+      <div class="m-val" style="font-size:1.3rem; letter-spacing:0;">17 Feb 2025</div>
+      <div class="m-sub">Operational</div>
     </div>
     <div class="metric-cell">
       <div class="m-key">Active Holdings</div>
       <div class="m-val">{{ current | length }}</div>
       <div class="m-sub">Maximum 8 per bylaws</div>
     </div>
+
     <div class="metric-cell">
-      <div class="m-key">Fund Inception</div>
-      <div class="m-val" style="font-size:1.3rem; letter-spacing:0;">17 Feb 2025</div>
-      <div class="m-sub">Operational</div>
+      <div class="m-key">Sharpe Ratio</div>
+      <div class="m-val">
+        {{ "%.2f"|format(sharpe) }}
+      </div>
+      <div class="m-sub">Risk-adjusted performance</div>
+    </div>
+  <div class="metric-cell">
+  <div class="m-key">Alpha</div>
+    <div class="m-val {% if alpha >= 0 %}positive{% else %}negative{% endif %}">
+        {{ "%+.2f"|format(alpha) }}%
+      </div>
+      <div class="m-sub">Excess return vs benchmark</div>
     </div>
   </div>
 
@@ -93,7 +98,7 @@
     <div class="chart-top-bar">
       <div class="chart-label">
         <h3>Portfolio Development</h3>
-        <span>vs. OMXS30 and S&P500 · indexed to inception · SEK</span>
+        <span>vs. OMXS30 and S&P500 · indexed to inception</span>
       </div>
       <div class="button-container">
         <button onclick="setTimeRange('1m', this)">1M</button>
@@ -288,8 +293,11 @@ const valueChart = new Chart(ctx, {
         bodyFont:  { family: 'EB Garamond, Georgia, serif', size: 12 },
         padding: 14,
         callbacks: {
-          label: c => ` ${c.dataset.label}  ${Math.round(c.parsed.y).toLocaleString('sv-SE')} SEK`
-        }
+          label: c => {
+            const pct = (c.parsed.y - 1) * 100;
+            return ` ${c.dataset.label}  ${pct.toFixed(2)}%`;
+          }  
+      }
       }
     },
     scales: {
@@ -320,14 +328,15 @@ const valueChart = new Chart(ctx, {
         ticks: {
           color: textColor,
           font: { family: 'EB Garamond, Georgia, serif', size: 11 },
-          callback: v => Math.round(v).toLocaleString('sv-SE')
-        }
+            callback: v => ((v - 1) * 100).toFixed(0) + '%'      
+          }
       }
     }
   }
 });
 
 function setTimeRange(range, btn) {
+  // mark active button
   document.querySelectorAll('.button-container button').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
 
@@ -341,25 +350,39 @@ function setTimeRange(range, btn) {
 
   const fl=[], fp=[], fo=[], fg=[];
   fullLabels.forEach((l, i) => {
-    if (new Date(l) >= from) { fl.push(l); fp.push(fullData[i]); fo.push(omxFull[i]); fg.push(gspcFull[i]); }
+    if (new Date(l) >= from) {
+      fl.push(l);
+      fp.push(fullData[i]);
+      fo.push(omxFull[i]);
+      fg.push(gspcFull[i]);
+    }
   });
 
   if (!fp.length) return;
 
-  const base        = fp[0];
-  const rebasedOMX  = fo.map(v => v * (base / fo[0]));
-  const rebasedGSPC = fg.map(v => v * (base / fg[0]));
+  // Rebase everything relative to the first point of the selected range
+  const p0 = fp[0];
+  const o0 = fo[0];
+  const g0 = fg[0];
 
-  const combined = [...fp, ...rebasedOMX, ...rebasedGSPC];
-  const minY = Math.min(...combined), maxY = Math.max(...combined);
+  const rebasedPortfolio = fp.map(v => (v / p0));  // always starts at 0
+  const rebasedOMX       = fo.map(v => (v / o0));
+  const rebasedGSPC      = fg.map(v => (v / g0));
+
+  // Compute min/max for y-axis padding
+  const combined = [...rebasedPortfolio, ...rebasedOMX, ...rebasedGSPC];
+  const minY = Math.min(...combined);
+  const maxY = Math.max(...combined);
   const pad  = (maxY - minY) * 0.06;
 
-  valueChart.options.scales.y.min = Math.floor((minY - pad) / 1000) * 1000;
-  valueChart.options.scales.y.max = Math.ceil((maxY + pad) / 1000) * 1000;
+  valueChart.options.scales.y.min = minY - pad;
+  valueChart.options.scales.y.max = maxY + pad;
+
   valueChart.data.labels = fl;
-  valueChart.data.datasets[0].data = fp;
+  valueChart.data.datasets[0].data = rebasedPortfolio;
   valueChart.data.datasets[1].data = rebasedOMX;
   valueChart.data.datasets[2].data = rebasedGSPC;
+
   valueChart.update();
 }
 
