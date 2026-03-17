@@ -401,12 +401,20 @@ def returns():
     auth = request.authorization
     if not auth or not check_auth(auth.username, auth.password):
         return authenticate()
-    
-    return portfolio_tracker.print_stock_returns(
-                from_date=datetime.date(2026, 2, 18),
-                to_date=datetime.date.today()
-                ).replace('\n', '<br>')
 
+    from_str = request.args.get("from")
+    to_str = request.args.get("to")
+
+    try:
+        from_date = datetime.datetime.strptime(from_str, "%Y-%m-%d").date() if from_str else datetime.date(2026, 2, 18)
+        to_date = datetime.datetime.strptime(to_str, "%Y-%m-%d").date() if to_str else datetime.date.today()
+    except ValueError:
+        return "Invalid date format. Use YYYY-MM-DD."
+
+    return portfolio_tracker.print_stock_returns(
+        from_date=from_date,
+        to_date=to_date
+    ).replace('\n', '<br>')
 
 @app.route("/increment")
 def incremental_update():
