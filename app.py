@@ -203,7 +203,7 @@ def dashboard():
 
     with open(cache_file) as f:
         data = json.load(f)
-
+    
     return render_template("dashboard.html", **data)
 
 
@@ -350,6 +350,7 @@ def compute_dashboard_data_internal():
     portfolio_returns = np.diff(value) / value[:-1]
 
     sharpe = sharpe_ratio(value)
+
 
     portfolio_returns = np.diff(value) / value[:-1]
     benchmark_returns = np.diff(omx_data) / omx_data[:-1]
