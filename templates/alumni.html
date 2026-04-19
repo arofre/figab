@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Figab Capital Partners — Alumni{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/alumni.css') }}" />
+{% endblock %}
+
+{% block page_title_bar %}
+<div class="page-title-bar">
+  <div class="page-title-inner">
+    <div class="page-title-cell">
+      <span class="page-eyebrow">Archive</span>
+      <h1>Alumni</h1>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block body %}
+<main class="alumni-gallery" aria-label="Alumni image gallery">
+  {% for image_url in image_urls %}
+  <img src="{{ image_url }}" alt="" loading="lazy" decoding="async" class="alumni-image" />
+  {% endfor %}
+</main>
+{% endblock %}

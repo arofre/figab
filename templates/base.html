@@ -28,6 +28,8 @@
       <ul>
         <li><a href="/" class="{{ 'nav-active' if request.path == '/' else '' }}">Home</a></li>
         <li><a href="/reports" class="{{ 'nav-active' if request.path.startswith('/reports') else '' }}">Reports</a></li>
+        <li><a href="/alumni" class="{{ 'nav-active' if request.path.startswith('/alumni') else '' }}">Alumni</a></li>
+
       </ul>
     </nav>
     {% block header_extra %}{% endblock %}

@@ -1,0 +1,29 @@
+main.alumni-gallery {
+  width: min(1400px, 100%);
+  margin: 0 auto;
+  padding: 40px 40px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.alumni-gallery .alumni-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border-hi);
+  box-shadow: var(--shadow-sm);
+  background: var(--surface);
+}
+
+@media (max-width: 640px) {
+  main.alumni-gallery {
+    padding: 20px 12px 40px;
+    gap: 8px;
+  }
+
+  .alumni-gallery .alumni-image {
+    border-width: 0;
+    box-shadow: none;
+  }
+}

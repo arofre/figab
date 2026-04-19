@@ -23,7 +23,9 @@ scheduler = APScheduler()
 scheduler.init_app(app)
 scheduler.start()
 UPLOAD_FOLDER = os.path.join(app.root_path, 'static/reports')
+ALUMNI_IMAGE_FOLDER = os.path.join(app.root_path, 'static', 'alumni')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['ALUMNI_IMAGE_FOLDER'] = ALUMNI_IMAGE_FOLDER
 app.secret_key = os.environ.get("SECRET_KEY", "fallback-dev-key")
 
 REPORT_FOLDERS = ["Monthly reports", "Board meetings", "General meeting"]
@@ -130,6 +132,22 @@ def get_reports_by_folder():
     return result
 
 
+def get_alumni_images():
+    folder = app.config['ALUMNI_IMAGE_FOLDER']
+    os.makedirs(folder, exist_ok=True)
+
+    allowed_ext = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'}
+    files = [
+        f for f in os.listdir(folder)
+        if os.path.isfile(os.path.join(folder, f))
+        and os.path.splitext(f)[1].lower() in allowed_ext
+        and not f.startswith('.')
+    ]
+    files.sort(key=lambda name: name.lower())
+
+    return [url_for('static', filename=f'alumni/{filename}') for filename in files]
+
+
 def load_transactions():
     """Read transactions.csv and return list of dicts."""
     transactions = []
@@ -211,6 +229,12 @@ def dashboard():
 def reports():
     reports_data = get_reports_by_folder()
     return render_template("report.html", reports_data=reports_data, report_folders=REPORT_FOLDERS)
+
+
+@app.route("/alumni")
+def alumni():
+    image_urls = get_alumni_images()
+    return render_template("alumni.html", image_urls=image_urls)
 
 
 @app.route('/success', methods=['POST'])
@@ -350,7 +374,6 @@ def compute_dashboard_data_internal():
     portfolio_returns = np.diff(value) / value[:-1]
 
     sharpe = sharpe_ratio(value)
-
 
     portfolio_returns = np.diff(value) / value[:-1]
     benchmark_returns = np.diff(omx_data) / omx_data[:-1]
