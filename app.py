@@ -18,6 +18,9 @@ from dateutil.relativedelta import relativedelta
 from flask import jsonify
 import sqlite3
 import gc
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError, VerificationError, InvalidHashError
+
 app = Flask(__name__)
 scheduler = APScheduler()
 scheduler.init_app(app)
@@ -26,7 +29,13 @@ UPLOAD_FOLDER = os.path.join(app.root_path, 'static/reports')
 ALUMNI_IMAGE_FOLDER = os.path.join(app.root_path, 'static', 'alumni')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['ALUMNI_IMAGE_FOLDER'] = ALUMNI_IMAGE_FOLDER
-app.secret_key = os.environ.get("SECRET_KEY", "fallback-dev-key")
+
+app.secret_key = os.environ["FLASK_SECRET_KEY"]
+
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD_HASH = os.environ.get("ADMIN_PASSWORD_HASH")
+
+ph = PasswordHasher()
 
 REPORT_FOLDERS = ["Monthly reports", "Board meetings", "General meeting"]
 CSV_FILE = "transactions.csv"
@@ -61,8 +70,16 @@ def percent_change(series, start_date, today_val):
 
 
 def check_auth(username, password):
-    return username == 'admin' and password == app.secret_key
+    if username != ADMIN_USERNAME:
+        return False
 
+    if not ADMIN_PASSWORD_HASH:
+        return False
+
+    try:
+        return ph.verify(ADMIN_PASSWORD_HASH, password)
+    except (VerifyMismatchError, VerificationError, InvalidHashError):
+        return False
 
 def authenticate():
     return Response(
