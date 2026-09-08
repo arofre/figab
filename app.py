@@ -4,18 +4,10 @@ import re
 import json
 import threading
 import numpy as np
-import pandas as pd
 from flask import Flask, render_template, request, Response, redirect, url_for, flash, send_from_directory
 from flask_apscheduler import APScheduler
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.interval import IntervalTrigger
-from apscheduler.triggers.cron import CronTrigger
-from collections import defaultdict
-import json
-import bisect
 from FinTrack import FinTrack, Config
 from dateutil.relativedelta import relativedelta
-from flask import jsonify
 import sqlite3
 import gc
 from argon2 import PasswordHasher
@@ -39,9 +31,15 @@ ph = PasswordHasher()
 
 REPORT_FOLDERS = ["Monthly reports", "Board meetings", "General meeting"]
 CSV_FILE = "transactions.csv"
+tracker_lock = threading.RLock()
+
+
+def create_portfolio_tracker():
+    return FinTrack(initial_cash=150000, currency="SEK", csv_file=CSV_FILE)
+
 
 with app.app_context():
-    portfolio_tracker = FinTrack(initial_cash=150000,currency="SEK", csv_file=CSV_FILE)
+    portfolio_tracker = create_portfolio_tracker()
 
 def beta_ratio(asset_prices, benchmark_prices):
     asset_prices = np.array(asset_prices)
@@ -59,7 +57,8 @@ def sharpe_ratio(prices):
     
 
 def calculate_portfolio_value():
-    return portfolio_tracker.get_portfolio_value(datetime.date.today())
+    with tracker_lock:
+        return portfolio_tracker.get_portfolio_value(datetime.date.today())
 
 
 def percent_change(series, start_date, today_val):
@@ -275,6 +274,8 @@ def success():
             f.save(save_path)
             flash(f"Report '{f.filename}' uploaded successfully.")
             return redirect(url_for('admin_dashboard'))
+    flash("No file uploaded.")
+    return redirect(url_for('admin_dashboard'))
 
 
 @app.route("/admin", methods=["GET"])
@@ -348,60 +349,90 @@ def compute_dashboard_data():
     auth = request.authorization
     if not auth or not check_auth(auth.username, auth.password):
         return authenticate()
-    compute_dashboard_data_internal()
+    try:
+        compute_dashboard_data_internal()
+    except Exception:
+        app.logger.exception("Dashboard cache update failed")
+        return "Could not update dashboard cache.", 500
     return redirect(url_for("dashboard"))
 
 
 def compute_dashboard_data_internal():
     today_date = datetime.date.today()
+    with tracker_lock:
+        data = portfolio_tracker.get_portfolio_value(datetime.date(2025, 2, 17), today_date)
+        current_holdings = portfolio_tracker.get_current_holdings()
+        past_holdings = portfolio_tracker.get_past_holdings()
+        omx_returns = portfolio_tracker.get_index_returns("^OMX", datetime.date(2025, 2, 17), today_date)
+        gspc_returns = portfolio_tracker.get_index_returns("^GSPC", datetime.date(2025, 2, 17), today_date)
 
-    data = portfolio_tracker.get_portfolio_value(datetime.date(2025,2,17),today_date)
-    value = [v / 150000 for v in data.values()]
-    
-    line_labels = [ts.strftime("%Y-%m-%d") for ts in data]
+    if not data:
+        raise ValueError("No portfolio data available.")
 
-    week_ago = data[today_date - relativedelta(weeks=1)]
-    month_ago = data[today_date - relativedelta(months=1)]
-    try:
-        year_ago = data[today_date - relativedelta(years=1)]
-    except:
-        year_ago = value[0]
-    pct_changes = {"Last Week": (data[today_date] - week_ago) / week_ago * 100,
-                    "Last Month": (data[today_date] -  month_ago) / month_ago * 100,
-                    "Last year": (data[today_date] - year_ago) / year_ago * 100,
-                    "All Time": (value[-1] - value[0]) / value[0] * 100
-                   }
+    points = sorted(data.items())
+    dates = [date for date, _ in points]
+    raw_values = [val for _, val in points]
+    value = [v / 150000 for v in raw_values]
+    line_labels = [ts.strftime("%Y-%m-%d") for ts in dates]
+    latest_value = raw_values[-1]
+
+    def value_on_or_before(target_date):
+        for dt, val in reversed(points):
+            if dt <= target_date:
+                return val
+        return None
+
+    week_ago = value_on_or_before(today_date - relativedelta(weeks=1))
+    month_ago = value_on_or_before(today_date - relativedelta(months=1))
+    year_ago = value_on_or_before(today_date - relativedelta(years=1))
+
+    def pct_from(reference):
+        if reference in (None, 0):
+            return None
+        return (latest_value - reference) / reference * 100
+
+    pct_changes = {
+        "Last Week": pct_from(week_ago),
+        "Last Month": pct_from(month_ago),
+        "Last year": pct_from(year_ago),
+        "All Time": (value[-1] - value[0]) / value[0] * 100 if len(value) > 1 and value[0] != 0 else None
+    }
 
     y_max = max(value) * 1.05
     y_min = min(value) * 0.95
 
-    omx_data = list(np.array(portfolio_tracker.get_index_returns("^OMX", datetime.date(2025,2,17), today_date)) + 1 )
-    gspc_data = list(np.array(portfolio_tracker.get_index_returns("^GSPC", datetime.date(2025,2,17), today_date)) + 1)
-    current_holdings = portfolio_tracker.get_current_holdings()
-    past_holdings = portfolio_tracker.get_past_holdings()
+    omx_data = list(np.array(omx_returns) + 1) if omx_returns else []
+    gspc_data = list(np.array(gspc_returns) + 1) if gspc_returns else []
 
-    diff_omx = len(value) - len(omx_data)
-    diff_gspc = len(value) - len(gspc_data)
+    if len(value) > 0:
+        if not omx_data:
+            omx_data = [1.0] * len(value)
+        if not gspc_data:
+            gspc_data = [1.0] * len(value)
 
-    for _ in range(diff_omx):
-        omx_data.append(omx_data[-1])
-    for _ in range(diff_gspc):
-        gspc_data.append(gspc_data[-1])
-
-    portfolio_returns = np.diff(value) / value[:-1]
+    if len(omx_data) < len(value):
+        omx_data.extend([omx_data[-1]] * (len(value) - len(omx_data)))
+    if len(gspc_data) < len(value):
+        gspc_data.extend([gspc_data[-1]] * (len(value) - len(gspc_data)))
+    if len(omx_data) > len(value):
+        omx_data = omx_data[:len(value)]
+    if len(gspc_data) > len(value):
+        gspc_data = gspc_data[:len(value)]
 
     sharpe = sharpe_ratio(value)
+    alpha = np.nan
 
-    portfolio_returns = np.diff(value) / value[:-1]
-    benchmark_returns = np.diff(omx_data) / omx_data[:-1]
-
-    min_len = min(len(portfolio_returns), len(benchmark_returns))
-    portfolio_returns = portfolio_returns[:min_len]
-    benchmark_returns = benchmark_returns[:min_len]
-
-    beta = np.cov(portfolio_returns, benchmark_returns)[0, 1] / np.var(benchmark_returns)
-
-    alpha = (np.mean(portfolio_returns) - beta * np.mean(benchmark_returns)) * 252 * 100
+    if len(value) > 1 and len(omx_data) > 1:
+        portfolio_returns = np.diff(value) / np.array(value[:-1])
+        benchmark_returns = np.diff(omx_data) / np.array(omx_data[:-1])
+        min_len = min(len(portfolio_returns), len(benchmark_returns))
+        if min_len >= 2:
+            portfolio_returns = portfolio_returns[:min_len]
+            benchmark_returns = benchmark_returns[:min_len]
+            benchmark_variance = np.var(benchmark_returns)
+            if benchmark_variance > 0:
+                beta = np.cov(portfolio_returns, benchmark_returns)[0, 1] / benchmark_variance
+                alpha = (np.mean(portfolio_returns) - beta * np.mean(benchmark_returns)) * 252 * 100
 
     cache_file = os.path.join(app.root_path, "static", "dashboard_cache.json")
     with open(cache_file, "w") as f:
@@ -424,29 +455,32 @@ def compute_dashboard_data_internal():
 
 @app.route("/reset_db")
 def reset_database(user_id=None):
+    global portfolio_tracker
     auth = request.authorization
     if not auth or not check_auth(auth.username, auth.password):
         return authenticate()
-    db_path = Config.get_db_path(user_id)
+    with tracker_lock:
+        db_path = Config.get_db_path(user_id)
+        print(f"Database location: {db_path}")
 
-    print(f"Database location: {db_path}")
+        if os.path.exists(db_path):
+            try:
+                conn = sqlite3.connect(db_path)
+                conn.close()
+            except sqlite3.Error:
+                pass
+            gc.collect()
 
-    if os.path.exists(db_path):
-        try:
-            conn = sqlite3.connect(db_path)
-            conn.close()
-        except Exception:
-            pass
-        gc.collect()
+            try:
+                os.remove(db_path)
+                print("Next time you initialize a portfolio, a fresh database will be created.")
+            except PermissionError as e:
+                print(f"Could not delete database: {e}")
+                return "Database is still in use. Try again in a moment.", 500
+        else:
+            print("Database file not found. Nothing to delete.")
 
-        try:
-            os.remove(db_path)
-            print("Next time you initialize a portfolio, a fresh database will be created.")
-        except PermissionError as e:
-            print(f"Could not delete database: {e}")
-            return "Database is still in use. Try again in a moment.", 500
-    else:
-        print("Database file not found. Nothing to delete.")
+        portfolio_tracker = create_portfolio_tracker()
 
     return "Database reset successfully.", 200
 
@@ -465,22 +499,28 @@ def returns():
     except ValueError:
         return "Invalid date format. Use YYYY-MM-DD."
 
-    return portfolio_tracker.print_stock_returns(
-        from_date=from_date,
-        to_date=to_date
-    ).replace('\n', '<br>')
+    with tracker_lock:
+        return portfolio_tracker.print_stock_returns(
+            from_date=from_date,
+            to_date=to_date
+        ).replace('\n', '<br>')
 
 @app.route("/increment")
 def incremental_update():
     auth = request.authorization
     if not auth or not check_auth(auth.username, auth.password):
         return authenticate()
-    
-    run_incremental_update()
+    try:
+        run_incremental_update()
+    except Exception:
+        app.logger.exception("Incremental update failed")
+        return "Incremental update failed.", 500
+    return redirect(url_for("dashboard"))
 
 def run_incremental_update():
-    portfolio_tracker.update_portfolio()
-    compute_dashboard_data_internal()
+    with tracker_lock:
+        portfolio_tracker.update_portfolio()
+        compute_dashboard_data_internal()
 
 @scheduler.task(
     "cron",
