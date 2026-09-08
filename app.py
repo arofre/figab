@@ -494,6 +494,8 @@ def scheduled_incremental_update():
 
 if __name__ == "__main__":    
     try:
+        run_incremental_update()
+
         port = int(os.environ.get("PORT", 8080))
         app.run(host="0.0.0.0", port=port)
     except (KeyboardInterrupt, SystemExit):
