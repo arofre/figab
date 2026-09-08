@@ -1,42 +1,45 @@
-from datetime import datetime, timedelta, date
+import datetime
 import os
+import re
 import json
 import threading
 import numpy as np
-import pandas as pd
 from flask import Flask, render_template, request, Response, redirect, url_for, flash, send_from_directory
-from sqlalchemy import func, select
 from flask_apscheduler import APScheduler
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.interval import IntervalTrigger
-from apscheduler.triggers.cron import CronTrigger
-from collections import defaultdict
-import json
-import bisect
-from models import db, Holding, HistoricalPrice, Cash, Dividend
-from bootstrap import bootstrap_data, load_transactions, generate_holdings, DEFAULT_START_DATE, STARTING_CASH
-from update import update_close_prices
-
+from FinTrack import FinTrack, Config
+from dateutil.relativedelta import relativedelta
+import sqlite3
+import gc
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError, VerificationError, InvalidHashError
 
 app = Flask(__name__)
 scheduler = APScheduler()
 scheduler.init_app(app)
 scheduler.start()
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///prices.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 UPLOAD_FOLDER = os.path.join(app.root_path, 'static/reports')
+ALUMNI_IMAGE_FOLDER = os.path.join(app.root_path, 'static', 'alumni')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.secret_key = os.environ.get("SECRET_KEY", "fallback-dev-key")
+app.config['ALUMNI_IMAGE_FOLDER'] = ALUMNI_IMAGE_FOLDER
 
-db.init_app(app)
+app.secret_key = os.environ["FLASK_SECRET_KEY"]
 
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD_HASH = os.environ.get("ADMIN_PASSWORD_HASH")
+
+ph = PasswordHasher()
+
+REPORT_FOLDERS = ["Monthly reports", "Board meetings", "General meeting"]
+CSV_FILE = "transactions.csv"
+tracker_lock = threading.RLock()
+
+
+def create_portfolio_tracker():
+    return FinTrack(initial_cash=150000, currency="SEK", csv_file=CSV_FILE)
 
 
 with app.app_context():
-    db.create_all()
-    if db.session.query(HistoricalPrice).count() == 0:
-        bootstrap_data()
-
+    portfolio_tracker = create_portfolio_tracker()
 
 def beta_ratio(asset_prices, benchmark_prices):
     asset_prices = np.array(asset_prices)
@@ -51,65 +54,473 @@ def sharpe_ratio(prices):
     if len(returns) < 2:
         return np.nan
     return np.mean(returns) / np.std(returns, ddof=1) * np.sqrt(252)
+    
 
-def get_latest_prices_for_holdings(date, tickers):
-    if not tickers:
-        return {}
+def calculate_portfolio_value():
+    with tracker_lock:
+        return portfolio_tracker.get_portfolio_value(datetime.date.today())
 
-    rows = (
-        db.session.query(HistoricalPrice)
-        .filter(HistoricalPrice.ticker.in_(tickers))
-        .filter(HistoricalPrice.date <= date)
-        .order_by(HistoricalPrice.ticker, HistoricalPrice.date.desc())
-        .all()
+
+def percent_change(series, start_date, today_val):
+    s = series[series.index <= start_date]
+    if s.empty:
+        return None
+    return ((today_val - s.iloc[-1]) / s.iloc[-1]) * 100
+
+
+def check_auth(username, password):
+    if username != ADMIN_USERNAME:
+        return False
+
+    if not ADMIN_PASSWORD_HASH:
+        return False
+
+    try:
+        return ph.verify(ADMIN_PASSWORD_HASH, password)
+    except (VerifyMismatchError, VerificationError, InvalidHashError):
+        return False
+
+def authenticate():
+    return Response(
+        'Could not verify your access level for that URL.\n'
+        'You have to login with proper credentials', 401,
+        {'WWW-Authenticate': 'Basic realm="Login Required"'}
     )
 
-    out = {}
-    for row in rows:
-        if row.ticker not in out:
-            out[row.ticker] = row.close   
-    return out
 
-import threading
-from flask import jsonify
+def sort_key_for_report(filename):
+    name = os.path.splitext(filename)[0].lower()
+
+    MONTHS = {
+        'january': 1, 'jan': 1,
+        'february': 2, 'feb': 2,
+        'march': 3, 'mar': 3,
+        'april': 4, 'apr': 4,
+        'may': 5,
+        'june': 6, 'jun': 6,
+        'july': 7, 'jul': 7,
+        'august': 8, 'aug': 8,
+        'september': 9, 'sep': 9, 'sept': 9,
+        'october': 10, 'oct': 10,
+        'november': 11, 'nov': 11,
+        'december': 12, 'dec': 12,
+    }
+
+    m = re.search(r'(\d{4})[-_./ ](\d{1,2})', name)
+    if m:
+        return (int(m.group(1)), int(m.group(2)))
+
+    for word in sorted(MONTHS, key=len, reverse=True):
+        if word in name:
+            year_m = re.search(r'\d{4}', name)
+            if year_m:
+                return (int(year_m.group()), MONTHS[word])
+
+    m = re.search(r'(\d{4})(\d{2})', name)
+    if m:
+        return (int(m.group(1)), int(m.group(2)))
+
+    return (0, 0)
+
+
+def get_reports_by_folder():
+    base = app.config['UPLOAD_FOLDER']
+    result = {}
+
+    for folder in REPORT_FOLDERS:
+        folder_path = os.path.join(base, folder)
+        os.makedirs(folder_path, exist_ok=True)
+        files = [
+            f for f in os.listdir(folder_path)
+            if os.path.isfile(os.path.join(folder_path, f)) and not f.startswith('.')
+        ]
+        files.sort(key=sort_key_for_report, reverse=True)
+        result[folder] = files
+
+    root_files = [
+        f for f in os.listdir(base)
+        if os.path.isfile(os.path.join(base, f)) and not f.startswith('.')
+    ]
+    root_files.sort(key=sort_key_for_report, reverse=True)
+    if root_files:
+        result['Other'] = root_files
+
+    return result
+
+
+def get_alumni_images():
+    folder = app.config['ALUMNI_IMAGE_FOLDER']
+    os.makedirs(folder, exist_ok=True)
+
+    allowed_ext = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'}
+    files = [
+        f for f in os.listdir(folder)
+        if os.path.isfile(os.path.join(folder, f))
+        and os.path.splitext(f)[1].lower() in allowed_ext
+        and not f.startswith('.')
+    ]
+    files.sort(key=lambda name: name.lower())
+
+    return [url_for('static', filename=f'alumni/{filename}') for filename in files]
+
+
+def load_transactions():
+    """Read transactions.csv and return list of dicts."""
+    transactions = []
+    if not os.path.exists(CSV_FILE):
+        return transactions
+    with open(CSV_FILE, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split(';')
+        # Pad to 5 fields
+        while len(parts) < 5:
+            parts.append('')
+        transactions.append({
+            'Ticker': parts[0],
+            'Date':   parts[1],
+            'Type':   parts[2],
+            'Amount': parts[3],
+            'Price':  parts[4],
+        })
+    return transactions
+
+
+def save_transactions(transactions):
+    """Write list of dicts back to transactions.csv."""
+    with open(CSV_FILE, 'w', encoding='utf-8') as f:
+        for tx in transactions:
+            price = tx.get('Price', '')
+            f.write(f"{tx['Ticker']};{tx['Date']};{tx['Type']};{tx['Amount']};{price}\n")
+
+
+@app.route("/delete_report", methods=["POST"])
+def delete_report():
+    auth = request.authorization
+    if not auth or not check_auth(auth.username, auth.password):
+        return authenticate()
+    
+    filename = request.form.get("delete_file", "").strip()
+    folder = request.form.get("delete_folder", "").strip()
+
+    if not filename:
+        flash("Please provide a filename.")
+        return redirect(url_for("admin_dashboard"))
+
+    if folder and folder in REPORT_FOLDERS:
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], folder, filename)
+    else:
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        flash(f"File '{filename}' deleted successfully.")
+    else:
+        flash(f"File '{filename}' does not exist.")
+    
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/reports/<path:filename>", endpoint="custom_reports")
+def reports_file(filename):
+    return send_from_directory("static/reports", filename)
+
+
+@app.route("/")
+def dashboard():
+    cache_file = os.path.join(app.root_path, "static", "dashboard_cache.json")
+    if not os.path.exists(cache_file):
+        return "Dashboard data not available. Please run /increment first."
+
+    with open(cache_file) as f:
+        data = json.load(f)
+    
+    return render_template("dashboard.html", **data)
+
+
+@app.route("/reports")
+def reports():
+    reports_data = get_reports_by_folder()
+    return render_template("report.html", reports_data=reports_data, report_folders=REPORT_FOLDERS)
+
+
+@app.route("/alumni")
+def alumni():
+    image_urls = get_alumni_images()
+    return render_template("alumni.html", image_urls=image_urls)
+
+
+@app.route('/success', methods=['POST'])
+def success():
+    auth = request.authorization
+    if not auth or not check_auth(auth.username, auth.password):
+        return authenticate()
+    
+    if request.method == 'POST':
+        f = request.files.get('file')
+        folder = request.form.get('folder', '').strip()
+
+        if f:
+            if folder and folder in REPORT_FOLDERS:
+                save_dir = os.path.join(app.config['UPLOAD_FOLDER'], folder)
+            else:
+                save_dir = app.config['UPLOAD_FOLDER']
+
+            os.makedirs(save_dir, exist_ok=True)
+            save_path = os.path.join(save_dir, f.filename)
+            f.save(save_path)
+            flash(f"Report '{f.filename}' uploaded successfully.")
+            return redirect(url_for('admin_dashboard'))
+    flash("No file uploaded.")
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route("/admin", methods=["GET"])
+def admin_dashboard():
+    auth = request.authorization
+    if not auth or not check_auth(auth.username, auth.password):
+        return authenticate()
+
+    transactions = load_transactions()
+    return render_template("admin.html", report_folders=REPORT_FOLDERS, transactions=transactions)
+
+
+@app.route("/admin/add_transaction", methods=["POST"])
+def add_transaction():
+    auth = request.authorization
+    if not auth or not check_auth(auth.username, auth.password):
+        return authenticate()
+
+    ticker   = request.form.get("ticker", "").strip().upper()
+    amount   = request.form.get("amount", "").strip()
+    action   = request.form.get("action", "").strip()
+    date_str = request.form.get("date", "").strip()
+    price    = request.form.get("price", "").strip()
+
+    if not ticker or not amount or action not in ("Buy", "Sell", "Short"):
+        flash("Please fill out all required fields correctly.")
+        return redirect(url_for("admin_dashboard"))
+
+    try:
+        int(amount)
+    except ValueError:
+        flash("Amount must be an integer.")
+        return redirect(url_for("admin_dashboard"))
+
+    line = f"{ticker};{date_str};{action};{amount};{price}\n"
+
+    with open(CSV_FILE, "a", encoding='utf-8') as f:
+        f.write(line)
+
+    flash(f"Transaction recorded: {action} {amount} × {ticker} on {date_str}.")
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/delete_transaction", methods=["POST"])
+def delete_transaction():
+    auth = request.authorization
+    if not auth or not check_auth(auth.username, auth.password):
+        return authenticate()
+
+    try:
+        row_index = int(request.form.get("row_index", -1))
+    except ValueError:
+        flash("Invalid row index.")
+        return redirect(url_for("admin_dashboard"))
+
+    transactions = load_transactions()
+
+    if row_index < 0 or row_index >= len(transactions):
+        flash("Transaction not found.")
+        return redirect(url_for("admin_dashboard"))
+
+    removed = transactions.pop(row_index)
+    save_transactions(transactions)
+
+    flash(f"Deleted: {removed['Type']} {removed['Amount']} × {removed['Ticker']} on {removed['Date']}.")
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/cache")
+def compute_dashboard_data():
+    auth = request.authorization
+    if not auth or not check_auth(auth.username, auth.password):
+        return authenticate()
+    try:
+        compute_dashboard_data_internal()
+    except Exception:
+        app.logger.exception("Dashboard cache update failed")
+        return "Could not update dashboard cache.", 500
+    return redirect(url_for("dashboard"))
+
+
+def compute_dashboard_data_internal():
+    today_date = datetime.date.today()
+    with tracker_lock:
+        data = portfolio_tracker.get_portfolio_value(datetime.date(2025, 2, 17), today_date)
+        current_holdings = portfolio_tracker.get_current_holdings()
+        past_holdings = portfolio_tracker.get_past_holdings()
+        omx_returns = portfolio_tracker.get_index_returns("^OMX", datetime.date(2025, 2, 17), today_date)
+        gspc_returns = portfolio_tracker.get_index_returns("^GSPC", datetime.date(2025, 2, 17), today_date)
+
+    if not data:
+        raise ValueError("No portfolio data available.")
+
+    points = sorted(data.items())
+    dates = [date for date, _ in points]
+    raw_values = [val for _, val in points]
+    value = [v / 150000 for v in raw_values]
+    line_labels = [ts.strftime("%Y-%m-%d") for ts in dates]
+    latest_value = raw_values[-1]
+
+    def value_on_or_before(target_date):
+        for dt, val in reversed(points):
+            if dt <= target_date:
+                return val
+        return None
+
+    week_ago = value_on_or_before(today_date - relativedelta(weeks=1))
+    month_ago = value_on_or_before(today_date - relativedelta(months=1))
+    year_ago = value_on_or_before(today_date - relativedelta(years=1))
+
+    def pct_from(reference):
+        if reference in (None, 0):
+            return None
+        return (latest_value - reference) / reference * 100
+
+    pct_changes = {
+        "Last Week": pct_from(week_ago),
+        "Last Month": pct_from(month_ago),
+        "Last year": pct_from(year_ago),
+        "All Time": (value[-1] - value[0]) / value[0] * 100 if len(value) > 1 and value[0] != 0 else None
+    }
+
+    y_max = max(value) * 1.05
+    y_min = min(value) * 0.95
+
+    omx_data = list(np.array(omx_returns) + 1) if omx_returns else []
+    gspc_data = list(np.array(gspc_returns) + 1) if gspc_returns else []
+
+    if len(value) > 0:
+        if not omx_data:
+            omx_data = [1.0] * len(value)
+        if not gspc_data:
+            gspc_data = [1.0] * len(value)
+
+    if len(omx_data) < len(value):
+        omx_data.extend([omx_data[-1]] * (len(value) - len(omx_data)))
+    if len(gspc_data) < len(value):
+        gspc_data.extend([gspc_data[-1]] * (len(value) - len(gspc_data)))
+    if len(omx_data) > len(value):
+        omx_data = omx_data[:len(value)]
+    if len(gspc_data) > len(value):
+        gspc_data = gspc_data[:len(value)]
+
+    sharpe = sharpe_ratio(value)
+    alpha = np.nan
+
+    if len(value) > 1 and len(omx_data) > 1:
+        portfolio_returns = np.diff(value) / np.array(value[:-1])
+        benchmark_returns = np.diff(omx_data) / np.array(omx_data[:-1])
+        min_len = min(len(portfolio_returns), len(benchmark_returns))
+        if min_len >= 2:
+            portfolio_returns = portfolio_returns[:min_len]
+            benchmark_returns = benchmark_returns[:min_len]
+            benchmark_variance = np.var(benchmark_returns)
+            if benchmark_variance > 0:
+                beta = np.cov(portfolio_returns, benchmark_returns)[0, 1] / benchmark_variance
+                alpha = (np.mean(portfolio_returns) - beta * np.mean(benchmark_returns)) * 252 * 100
+
+    cache_file = os.path.join(app.root_path, "static", "dashboard_cache.json")
+    with open(cache_file, "w") as f:
+        json.dump({
+            "pct_changes": pct_changes,
+            "line_labels": line_labels,
+            "line_data": value,
+            "omx_data": omx_data,
+            "gspc_data": gspc_data,
+            "y_max": y_max,
+            "y_min": y_min,
+            "current": current_holdings,
+            "past": past_holdings,
+            "sharpe": sharpe,
+            "alpha": alpha,
+            }, f)
+
+    print("Dashboard cache updated.")
+
+
+@app.route("/reset_db")
+def reset_database(user_id=None):
+    global portfolio_tracker
+    auth = request.authorization
+    if not auth or not check_auth(auth.username, auth.password):
+        return authenticate()
+    with tracker_lock:
+        db_path = Config.get_db_path(user_id)
+        print(f"Database location: {db_path}")
+
+        if os.path.exists(db_path):
+            try:
+                conn = sqlite3.connect(db_path)
+                conn.close()
+            except sqlite3.Error:
+                pass
+            gc.collect()
+
+            try:
+                os.remove(db_path)
+                print("Next time you initialize a portfolio, a fresh database will be created.")
+            except PermissionError as e:
+                print(f"Could not delete database: {e}")
+                return "Database is still in use. Try again in a moment.", 500
+        else:
+            print("Database file not found. Nothing to delete.")
+
+        portfolio_tracker = create_portfolio_tracker()
+
+    return "Database reset successfully.", 200
+
+@app.route("/returns")
+def returns():
+    auth = request.authorization
+    if not auth or not check_auth(auth.username, auth.password):
+        return authenticate()
+
+    from_str = request.args.get("from")
+    to_str = request.args.get("to")
+
+    try:
+        from_date = datetime.datetime.strptime(from_str, "%Y-%m-%d").date() if from_str else datetime.date(2026, 2, 18)
+        to_date = datetime.datetime.strptime(to_str, "%Y-%m-%d").date() if to_str else datetime.date.today()
+    except ValueError:
+        return "Invalid date format. Use YYYY-MM-DD."
+
+    with tracker_lock:
+        return portfolio_tracker.print_stock_returns(
+            from_date=from_date,
+            to_date=to_date
+        ).replace('\n', '<br>')
+
+@app.route("/increment")
+def incremental_update():
+    auth = request.authorization
+    if not auth or not check_auth(auth.username, auth.password):
+        return authenticate()
+    try:
+        run_incremental_update()
+    except Exception:
+        app.logger.exception("Incremental update failed")
+        return "Incremental update failed.", 500
+    return redirect(url_for("dashboard"))
 
 def run_incremental_update():
-    from sqlalchemy import func
-    print("incremental update started")
-    with app.app_context():
-        last_price_date = db.session.query(func.max(HistoricalPrice.date)).scalar()
-        start_date = (last_price_date + timedelta(days=1)) if last_price_date else DEFAULT_START_DATE
-
-        tickers = [t[0] for t in db.session.query(HistoricalPrice.ticker).distinct().all()]
-
-        for ticker in tickers:
-            try:
-                update_close_prices(ticker, start_date=start_date)
-            except Exception as e:
-                print(f"Failed to update {ticker}: {e}")
-
-        last_holding_date = db.session.query(func.max(Holding.date)).scalar()
-        txs, _ = load_transactions("transactions.csv")
-        from_date = (last_holding_date + timedelta(days=1)) if last_holding_date else DEFAULT_START_DATE
-        to_date = date.today()
-
-        starting_cash = (
-            db.session.query(Cash.balance)
-            .filter(Cash.date == last_holding_date)
-            .scalar()
-            if last_holding_date else STARTING_CASH
-        )
-
-        generate_holdings(
-            transactions=txs,
-            from_date=from_date,
-            to_date=to_date,
-            starting_cash=starting_cash
-        )
-
+    with tracker_lock:
+        portfolio_tracker.update_portfolio()
         compute_dashboard_data_internal()
-
-    print("Incremental update finished.")
 
 @scheduler.task(
     "cron",
@@ -120,405 +531,6 @@ def run_incremental_update():
 )
 def scheduled_incremental_update():
     run_incremental_update()
-
-@app.route("/increment")
-def incremental_update():
-    thread = threading.Thread(
-        target=run_incremental_update,
-        daemon=True
-    )
-    thread.start()
-
-    return jsonify({"status": "Incremental update started"}), 202
-
-
-def get_index_prices(tickers, dates):
-    prices = (
-        db.session.query(HistoricalPrice.ticker, HistoricalPrice.date, HistoricalPrice.close)
-        .filter(HistoricalPrice.ticker.in_(tickers))
-        .filter(HistoricalPrice.date.in_(dates))
-        .all()
-    )
-
-    df = pd.DataFrame(prices, columns=['ticker', 'date', 'close'])
-    df['date'] = pd.to_datetime(df['date'])
-    return df
-
-def get_allocation_by_sector(latest_date):
-    holdings = Holding.query.filter_by(date=latest_date).all()
-    if not holdings:
-        return pd.DataFrame(columns=['sector', 'value'])
-
-    data = []
-    for h in holdings:
-        if h.sector:
-            price = get_latest_prices_for_holdings(latest_date, [h.ticker]).get(h.ticker)
-            if price:
-                data.append({'sector': h.sector, 'value': price * h.shares})
-
-    df = pd.DataFrame(data)
-    if not df.empty:
-        df = df.groupby('sector')['value'].sum().reset_index()
-    return df
-
-def get_allocation(latest_date):
-    holdings = Holding.query.filter_by(date=latest_date).all()
-    if not holdings:
-        return pd.DataFrame(columns=['ticker', 'value'])
-
-    tickers = [h.ticker for h in holdings]
-    price_dict = get_latest_prices_for_holdings(latest_date, tickers)
-
-    data = []
-    for h in holdings:
-        price = price_dict.get(h.ticker)
-        if price is not None:
-            data.append({'ticker': h.ticker, 'value': price * h.shares})
-
-    return pd.DataFrame(data)
-
-
-def calculate_portfolio_values_optimized():
-    holdings = pd.read_sql(select(Holding), db.engine)
-    prices = pd.read_sql(select(HistoricalPrice), db.engine)
-    cash = pd.read_sql(select(Cash), db.engine)
-    dividends = pd.read_sql(select(Dividend), db.engine)
-
-    for df in [holdings, prices, cash, dividends]:
-        if not df.empty:
-            df['date'] = pd.to_datetime(df['date'])
-
-    if holdings.empty or prices.empty:
-        return pd.Series(dtype='float64')
-
-    prices = prices.sort_values(['ticker', 'date'])
-    merged = holdings.merge(prices, on='ticker', how='left')
-    merged = merged[merged['date_y'] <= merged['date_x']]
-    merged = merged.sort_values(['ticker', 'date_x', 'date_y'])
-    merged = merged.drop_duplicates(subset=['ticker', 'date_x'], keep='last')
-    merged = merged.rename(columns={'date_x': 'date', 'close': 'price'})
-    merged['value'] = merged['shares'] * merged['price']
-
-    holding_value = merged.groupby('date')['value'].sum().rename("holdings_value")
-    cash_value = cash.groupby('date')['balance'].sum().rename("cash_value")
-
-    if not dividends.empty:
-        dividends = dividends.merge(holdings, on=['date', 'ticker'], how='left')
-        dividends['div_value'] = dividends['amount'] * dividends['shares']
-        dividend_cash = dividends.groupby('date')['div_value'].sum().rename("div_value")
-    else:
-        dividend_cash = pd.Series(dtype='float64')
-
-    df = pd.concat([holding_value, cash_value, dividend_cash], axis=1).fillna(0)
-    df['total_value'] = df.sum(axis=1)
-
-    return df['total_value'].sort_index()
-
-
-def percent_change(series, start_date, today_val):
-    s = series[series.index <= start_date]
-    if s.empty:
-        return None
-    return ((today_val - s.iloc[-1]) / s.iloc[-1]) * 100
-
-def get_current_holdings_longnames():
-    latest_date = Holding.query.order_by(Holding.date.desc()).first()
-    if not latest_date:
-        return []
-    holdings = Holding.query.filter_by(date=latest_date.date).all()
-    return list({h.longname for h in holdings if h.longname})
-
-def get_past_holdings_longnames(current_holdings):
-    all_holdings = Holding.query.all()
-    return list({h.longname for h in all_holdings if h.longname and h.longname not in current_holdings})
-
-
-def check_auth(username, password):
-    return username == 'admin' and password == app.secret_key
-
-
-def authenticate():
-    return Response(
-        'Could not verify your access level for that URL.\n'
-        'You have to login with proper credentials', 401,
-        {'WWW-Authenticate': 'Basic realm="Login Required"'}
-    )
-
-@app.route("/delete_report", methods=["POST"])
-def delete_report():
-    auth = request.authorization
-    if not auth or not check_auth(auth.username, auth.password):
-        return authenticate()
-    
-    filename = request.form.get("delete_file", "").strip()
-    if not filename:
-        flash("Please provide a filename.")
-        return redirect(url_for("admin_dashboard"))
-
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-
-    if os.path.exists(file_path):
-        os.remove(file_path)
-        flash(f"File '{filename}' deleted successfully.")
-    else:
-        flash(f"File '{filename}' does not exist.")
-    
-    return redirect(url_for("admin_dashboard"))
-
-@app.route("/reports/<path:filename>", endpoint="custom_reports")
-def reports(filename):
-    return send_from_directory("static/reports", filename)
-
-@app.route("/")
-def dashboard():
-    cache_file = os.path.join(app.root_path, "static", "dashboard_cache.json")
-    if not os.path.exists(cache_file):
-        return "Dashboard data not available. Please run /increment first."
-
-    with open(cache_file) as f:
-        data = json.load(f)
-
-    return render_template("dashboard.html", **data)
-
-
-@app.route("/reports")
-def reports():
-    report_list = os.listdir("static/reports/")
-    return render_template(
-        "report.html", report_list=report_list
-    )
-
-
-
-@app.route('/success', methods=['POST'])
-def success():
-    auth = request.authorization
-    if not auth or not check_auth(auth.username, auth.password):
-        return authenticate()
-    
-    if request.method == 'POST':  
-        f = request.files['file']
-        if f:
-            save_path = os.path.join(app.config['UPLOAD_FOLDER'], f.filename)
-            f.save(save_path)  
-            return redirect(url_for('reports'))
-
-
-@app.route("/reset_db")
-def reset_db():
-    auth = request.authorization
-    if not auth or not check_auth(auth.username, auth.password):
-        return authenticate()
-
-    reset_everything()
-    compute_dashboard_data_internal()
-
-    return redirect(url_for('dashboard'))
-
-
-@app.route("/admin", methods=["GET", "POST"])
-def admin_dashboard():
-    auth = request.authorization
-    if not auth or not check_auth(auth.username, auth.password):
-        return authenticate()
-
-    if request.method == "POST":
-        ticker = request.form.get("ticker", "").strip().upper()
-        amount = request.form.get("amount", "").strip()
-        action = request.form.get("action")
-        date_str = request.form.get("date")
-
-        if not ticker or not amount or action not in ("Buy", "Sell"):
-            flash("Please fill out all fields correctly.")
-            return redirect(url_for("admin_dashboard"))
-
-        try:
-            amount = int(amount)
-        except ValueError:
-            flash("Amount must be an integer.")
-            return redirect(url_for("admin_dashboard"))
-
-        line = f"{ticker};{date_str};{action};{amount};\n"
-
-        with open("transactions.csv", "a") as f:
-            f.write(line)
-
-        flash("Transaction recorded successfully.")
-        return redirect(url_for("admin_dashboard"))
-
-    return render_template("admin.html")
-
-@app.route("/cache")
-def compute_dashboard_data():
-    auth = request.authorization
-    if not auth or not check_auth(auth.username, auth.password):
-        return authenticate()
-    compute_dashboard_data_internal()
-    return redirect(url_for("dashboard"))
-
-def compute_dashboard_data_internal():
-    """Fastest possible dashboard rebuild. Only O(n) operations."""
-
-
-    # ---------------------------------------
-    # 1) BULK LOAD ALL TABLES IN MEMORY
-    # ---------------------------------------
-    holdings = Holding.query.all()
-    dividends = Dividend.query.all()
-    cash_entries = Cash.query.all()
-    prices = HistoricalPrice.query.all()
-
-    if not holdings:
-        return redirect(url_for("dashboard"))
-
-    # ---------------------------------------
-    # 2) FAST STRUCTURES
-    # ---------------------------------------
-    holdings_by_date = defaultdict(list)
-    for h in holdings:
-        holdings_by_date[h.date].append(h)
-
-    dividends_by_date = defaultdict(list)
-    for d in dividends:
-        dividends_by_date[d.date].append(d)
-
-    cash_by_date = {c.date: c.balance for c in cash_entries}
-    
-
-    # Price → ticker → sorted list of (date, close)
-    price_lookup = defaultdict(list)
-    for p in prices:
-        price_lookup[p.ticker].append((p.date, p.close))
-
-    for t in price_lookup:
-        price_lookup[t].sort()
-
-    def get_price(ticker, dt):
-        """SQLite-safe binary search for most recent price before date."""
-        lst = price_lookup.get(ticker)
-        if not lst:
-            return None
-        idx = bisect.bisect_right(lst, (dt, 10**12)) - 1
-        if idx >= 0:
-            return lst[idx][1]
-        return None
-
-    all_dates = sorted(holdings_by_date.keys())
-    if not all_dates:
-        return redirect(url_for("dashboard"))
-
-    # ---------------------------------------
-    # 3) BUILD PORTFOLIO TIME SERIES
-    # ---------------------------------------
-    portfolio_values = {}
-
-    for dt in all_dates:
-        total = cash_by_date.get(dt, 0)
-
-        # dividends
-        for div in dividends_by_date.get(dt, []):
-            # get shares at this date
-            shares = 0
-            for h in holdings_by_date[dt]:
-                if h.ticker == div.ticker:
-                    shares = h.shares
-                    break
-            total += div.amount * shares
-
-        # holdings
-        for h in holdings_by_date[dt]:
-            price = get_price(h.ticker, dt)
-            if price:
-                total += h.shares * price
-
-        portfolio_values[dt] = total
-
-    # Convert to pandas for metrics
-    series = pd.Series(portfolio_values)
-    series.index = pd.to_datetime(series.index)
-
-    latest_date = series.index[-1].date()
-    first_date = series.index[0]
-    today_val = series.iloc[-1]
-
-    now = pd.Timestamp.now().normalize()
-
-    def pct_change(start_dt):
-        """Percent change relative to the latest value."""
-        try:
-            past = series.loc[:start_dt].iloc[-1]
-            return (today_val - past) / past * 100
-        except:
-            return None
-
-    pct_changes = {
-        "This Week": pct_change(now - timedelta(days=7)),
-        "This Month": pct_change(now.replace(day=1)),
-        "This Year": pct_change(now.replace(month=1, day=1)),
-        "All Time": pct_change(first_date)
-    }
-
-    df_series = series.reset_index()
-    df_series.columns = ["date", "value"]
-
-    line_labels = df_series["date"].dt.strftime("%Y-%m-%d").tolist()
-    line_data = df_series["value"].tolist()
-
-    y_max = round(max(line_data) * 1.05, -4)
-    y_min = round(min(line_data) * 0.95, -4)
-
-    # holdings lists
-    current_holdings = list({h.longname for h in holdings_by_date[latest_date] if h.longname})
-    all_longnames = {h.longname for h in holdings}
-    past_holdings = list(all_longnames - set(current_holdings))
-
-
-    index_tickers = ['^OMX', '^GSPC']
-    index_prices_df = get_index_prices(index_tickers, series.index)
-    index_pivot = index_prices_df.pivot(index='date', columns='ticker', values='close')
-
-    # OMX
-    omx_temp = index_pivot.get('^OMX', pd.Series()).reindex(series.index).fillna(method='ffill')
-    omx_data = [x * 150_000 / omx_temp.iloc[0] for x in omx_temp]
-
-    # GSPC
-    gspc_temp = index_pivot.get('^GSPC', pd.Series()).reindex(series.index).fillna(method='ffill')
-    gspc_data = [x * 150_000 / gspc_temp.iloc[0] for x in gspc_temp]
-
-
-    # ---------------------------------------
-    # 4) WRITE DASHBOARD CACHE FILE
-    # ---------------------------------------
-    cache_file = os.path.join(app.root_path, "static", "dashboard_cache.json")
-    with open(cache_file, "w") as f:
-        json.dump({
-            "latest_value": round(today_val, 2),
-            "pct_changes": pct_changes,
-            "line_labels": line_labels,
-            "line_data": line_data,
-            "omx_data": omx_data,
-            "gspc_data": gspc_data,
-            "y_max": y_max,
-            "y_min": y_min,
-            "cash": round(cash_by_date.get(latest_date, 0)),
-            "current": current_holdings,
-            "past": past_holdings,
-        }, f)
-
-    print("Dashboard cache updated.")
-
-
-def reset_everything():
-    with app.app_context():
-        db.drop_all()
-        db.create_all()
-        bootstrap_data()
-
-import os
-
-
-
-
 
 if __name__ == "__main__":    
     try:

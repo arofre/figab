@@ -1,87 +1,220 @@
-/* --- Base Styles --- */
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: "Inter", system-ui, sans-serif; background: #f4f6f8; color: #1f2937; line-height: 1.6; }
-h1,h2,h3,h4,h5,h6 { margin-bottom: 0.5rem; }
+/* ═══════════════════════════════════════════════════════
+   FIGAB CAPITAL PARTNERS — report.css
+   Page-specific styles for the reports page
+   ═══════════════════════════════════════════════════════ */
 
-/* --- Top Menu --- */
-header { background: #ffffff; padding: 15px 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 1000; }
-.top-bar { display: flex; justify-content: space-between; align-items: center; }
-#menu ul { display: flex; list-style: none; gap: 20px; }
-#menu a { text-decoration: none; color: #1f2937; font-weight: 500; transition: color 0.2s; }
-#menu a:hover { color: #3a86ff; }
-
-/* --- Report Page Title --- */
-.report-page-title {
-    text-align: center;
-    font-size: 2rem;
-    font-weight: 600;
-    color: #3a86ff;
-    margin-bottom: 25px;
-    position: relative;
-    margin-top: 25px;
-}
-.report-page-title::after {
-    content: "";
-    display: block;
-    width: 80px;
-    height: 3px;
-    background: #3a86ff;
-    margin: 10px auto 0 auto;
-    border-radius: 2px;
+.page-title-bar {
+  position: sticky;
+  top: 66px;
+  z-index: 99;
 }
 
-/* --- PDF Report List --- */
-.report-list {
-    max-width: 800px;
-    margin: 0 auto 40px auto;
-    padding: 0;
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
+.page-count {
+  font-family: 'EB Garamond', serif;
+  font-style: italic;
+  font-size: 0.82rem;
+  color: var(--text-faint);
+  margin-left: auto;
+  align-self: center;
 }
+
+main {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 40px 40px 80px;
+  flex: 1;
+}
+
+/* ═══════════════════
+   FOLDER SECTIONS
+   ═══════════════════ */
+.report-folder {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: none;
+  box-shadow: var(--shadow-sm);
+}
+
+.report-folder:first-child { border-top: 1px solid var(--border); margin-top: 0; }
+
+.folder-header {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid transparent;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.folder-header:hover { background: rgba(184,151,74,0.04); }
+.folder-header.active { border-bottom-color: var(--border); }
+
+.folder-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 0.7rem;
+  font-style: italic;
+  color: var(--gold);
+  opacity: 0.7;
+  padding: 0 22px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
+  min-width: 60px;
+  justify-content: center;
+}
+
+.folder-title-area {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  padding: 0 24px;
+  height: 56px;
+  gap: 16px;
+}
+
+.folder-header h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.folder-doc-count {
+  font-family: 'EB Garamond', serif;
+  font-style: italic;
+  font-size: 0.78rem;
+  color: var(--text-faint);
+}
+
+.folder-arrow-cell {
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  height: 56px;
+  border-left: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.folder-arrow {
+  font-size: 0.6rem;
+  color: var(--gold);
+  transition: transform 0.3s ease;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+.folder-header.active .folder-arrow { transform: rotate(90deg); }
+
+.folder-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s ease;
+  background: var(--surface-2);
+}
+
+.folder-content.open { max-height: 2000px; }
+
+/* Report list */
+.report-list { list-style: none; }
+
 .report-list li {
-    background: #ffffff;
-    padding: 15px 20px;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+  border-bottom: 1px solid var(--border);
+  position: relative;
 }
-.report-list li:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
-    background: #f1f5f9;
+
+.report-list li:last-child { border-bottom: none; }
+
+.report-list li::before {
+  content: '';
+  position: absolute;
+  left: 60px; top: 0;
+  width: 1px; height: 0;
+  background: linear-gradient(180deg, var(--gold), var(--gold-lt));
+  transition: height 0.25s ease;
 }
+
+.report-list li:hover::before { height: 100%; }
+
 .report-list a {
-    text-decoration: none;
-    color: #1f2937;
-    font-weight: 500;
-    font-size: 1rem;
-    display: block;
-}
-.report-list a:hover {
-    color: #3a86ff;
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  height: 50px;
+  transition: background 0.15s;
 }
 
-/* --- Dark Mode --- */
-@media (prefers-color-scheme: dark) {
-    body { background: #121821; color: #e2e7e5; }
+.report-list a:hover { background: rgba(184,151,74,0.04); }
 
-    header { background: #1e293b; box-shadow: 0 2px 8px rgba(0,0,0,0.5); }
-    #menu a { color: #e2e7e5; }
-    #menu a:hover { color: #3a86ff; }
+.report-index {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 0.68rem;
+  color: var(--text-faint);
+  width: 60px;
+  text-align: center;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
-    .report-page-title { color: #3a86ff; }
-    .report-page-title::after { background: #3a86ff; }
+.report-name {
+  font-family: 'EB Garamond', serif;
+  font-size: 1rem;
+  font-weight: 400;
+  color: var(--text);
+  padding: 0 24px;
+  flex: 1;
+  transition: color 0.2s;
+}
 
-    .report-list li {
-        background: #1e293b;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-    }
-    .report-list li:hover {
-        background: #152136;
-        box-shadow: 0 6px 18px rgba(0,0,0,0.7);
-    }
-    .report-list a { color: #e2e7e5; }
-    .report-list a:hover { color: #3a86ff; }
+.report-list a:hover .report-name { color: var(--forest); }
+
+.report-ext {
+  font-family: 'Cormorant SC', serif;
+  font-size: 0.52rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding: 0 22px;
+  border-left: 1px solid var(--border);
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  min-width: 64px;
+  justify-content: center;
+}
+
+.report-ext.pdf  { color: var(--gold); }
+.report-ext.docx { color: var(--fern); }
+
+.empty-folder {
+  padding: 32px 84px;
+  font-family: 'EB Garamond', serif;
+  font-style: italic;
+  font-size: 0.88rem;
+  color: var(--text-faint);
+}
+
+/* ═══════════════════
+   RESPONSIVE
+   ═══════════════════ */
+@media (max-width: 1024px) {
+  main { padding: 40px 20px 60px; }
+}
+
+@media (max-width: 640px) {
+  .page-title-bar { top: 58px; }
+  main { padding: 40px 0 60px; }
+  .folder-num { min-width: 44px; padding: 0 14px; }
+  .report-list li::before { left: 44px; }
+  .report-index { width: 44px; }
 }
